@@ -15,6 +15,12 @@ function ScoreDisplay(stat: Statistics) {
   if (stat.total > 0) {
     accuracy = stat.correct / stat.total;
   }
+  var color = "text-red-800";
+  if (accuracy >= 0.9) {
+    color = "text-green-800";
+  } else if (accuracy >= 0.8) {
+    color = "text-yellow-800";
+  }
   return (
     <div className='mt-20 text-3xl text-center grid gap-4 grid-cols-2'>
       <div>
@@ -32,8 +38,8 @@ function ScoreDisplay(stat: Statistics) {
       <div>
         正确率：
       </div>
-      <div>
-        {Math.round(accuracy * 100).toFixed(2)}%
+      <div className={color}>
+        {Math.round(accuracy * 100)}%
       </div>
     </div>
   );
