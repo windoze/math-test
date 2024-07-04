@@ -1,5 +1,25 @@
-[workspace]
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
 
-resolver = "2"
-
-members = ["server"]
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+rusqlite = { version = "0.31", features = ["bundled-full"] }
+tokio-rusqlite = "0.5"
+poem = { version = "3", features = [
+    "anyhow",
+    "rustls",
+    "embed",
+    "acme-native-roots",
+] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+rand = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.9"
+now = "0.1"
+rust-embed = "8.0"
+env_logger = "0.11"

@@ -20,7 +20,7 @@ mod question;
 mod test_repo;
 
 #[derive(RustEmbed)]
-#[folder = "../frontend/dist"]
+#[folder = "frontend/dist"]
 pub struct Files;
 
 #[derive(Clone)]
