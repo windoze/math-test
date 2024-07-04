@@ -21,15 +21,16 @@ impl TestRepo {
             .call(|conn| {
                 conn.execute_batch(
                     "BEGIN;
-                    CREATE TABLE IF NOT EXISTS questions (
-                    id INTEGER PRIMARY KEY,
-                    question TEXT NOT NULL,
-                    expected_answer INTEGER NOT NULL,
-                    answer INTEGER,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    answered_at TIMESTAMP
-                );
-                CREATE INDEX IF NOT EXISTS idx_created_at ON questions (created_at);
+                        CREATE TABLE IF NOT EXISTS questions (
+                        id INTEGER PRIMARY KEY,
+                        question TEXT NOT NULL,
+                        expected_answer INTEGER NOT NULL,
+                        answer INTEGER,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        answered_at TIMESTAMP
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_created_at ON questions (created_at);
+                    COMMIT;
                 ",
                 )?;
                 Ok(())
