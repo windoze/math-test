@@ -1,6 +1,47 @@
+use std::fmt::Display;
+
 use rand::Rng;
 
-pub fn generate_question<R: Rng>(rng: &mut R) -> (String, i64) {
+#[derive(Clone)]
+pub struct Question {
+    question: String,
+    answer: i64,
+    current_input: Option<i64>,
+}
+
+impl Question {
+    pub fn new() -> Self {
+        let mut rng = rand::thread_rng();
+        let (question, answer) = generate_question(&mut rng);
+        Self {
+            question,
+            answer,
+            current_input: None,
+        }
+    }
+
+    pub fn get_question(&self) -> String {
+        self.question.clone()
+    }
+
+    pub fn get_expected_answer(&self) -> i64 {
+        self.answer
+    }
+
+    fn get_input(&self) -> String {
+        self.current_input
+            .map(|x| x.to_string())
+            .unwrap_or_default()
+    }
+}
+
+impl Display for Question {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} = {}", self.question, self.get_input())
+    }
+}
+
+fn generate_question<R: Rng>(rng: &mut R) -> (String, i64) {
     loop {
         let a = rng.gen_range(2..=100);
         let b = rng.gen_range(2..=100);
@@ -19,7 +60,7 @@ pub fn generate_question<R: Rng>(rng: &mut R) -> (String, i64) {
             }
             2 => {
                 // Multiplication
-                let b = rng.gen_range(2..=20);
+                let b = rng.gen_range(3..=30);
                 return (format!("{} x {}", a, b), a * b);
             }
             3 => {

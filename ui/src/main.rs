@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use dioxus::prelude::*;
+use test_repo::{Question, Statistic};
 use tracing::Level;
 
 mod test_repo;
@@ -25,78 +26,15 @@ fn App() -> Element {
     }
 }
 
-#[derive(Clone)]
-struct Question {
-    question: String,
-    answer: i64,
-    current_input: Option<i64>,
-}
+#[component]
+fn NumberDisplay() -> Element {
+    let input = consume_context::<Signal<Question>>();
 
-impl Question {
-    fn new() -> Self {
-        let mut rng = rand::thread_rng();
-        let (question, answer) = test_repo::generate_question(&mut rng);
-        Self {
-            question,
-            answer,
-            current_input: None,
+    rsx! {
+        div {
+            class: "font-mono font-black text-4xl bg-green-300 border-0 py-4 px-3 rounded text-base mt-10",
+            "{input.read()}"
         }
-    }
-
-    fn check_answer(&self) -> bool {
-        self.current_input == Some(self.answer)
-    }
-
-    fn input_digit(&mut self, digit: i64) {
-        self.current_input = Some(self.current_input.unwrap_or(0) * 10 + digit);
-    }
-
-    fn backspace(&mut self) {
-        self.current_input = self.current_input.map(|x| x / 10);
-        if self.current_input == Some(0) {
-            self.current_input = None;
-        }
-    }
-
-    fn get_input(&self) -> String {
-        self.current_input
-            .map(|x| x.to_string())
-            .unwrap_or_default()
-    }
-
-    fn can_submit(&self) -> bool {
-        self.current_input.is_some()
-    }
-}
-
-#[derive(Clone)]
-struct Statistic {
-    correct: i64,
-    total: i64,
-}
-
-impl Statistic {
-    fn new() -> Self {
-        Self {
-            correct: 0,
-            total: 0,
-        }
-    }
-
-    fn update(&mut self, correct: bool) {
-        self.total += 1;
-        if correct {
-            self.correct += 1;
-        }
-    }
-
-    fn get_accuracy(&self) -> f64 {
-        100.0f64
-            * if self.total == 0 {
-                0.0
-            } else {
-                self.correct as f64 / self.total as f64
-            }
     }
 }
 
@@ -111,18 +49,6 @@ fn CalcButton(digit: i64) -> Element {
                 input.write().input_digit(digit);
             },
             "{digit}"
-        }
-    }
-}
-
-#[component]
-fn NumberDisplay() -> Element {
-    let input = consume_context::<Signal<Question>>();
-
-    rsx! {
-        div {
-            class: "font-mono font-black text-4xl bg-green-300 border-0 py-4 px-3 rounded text-base mt-10",
-            "{input.read().question} = {input.read().get_input()}"
         }
     }
 }
