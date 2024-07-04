@@ -3,7 +3,7 @@ use std::env;
 use chrono::Utc;
 use chrono_tz::Tz;
 use env_logger::Env;
-use log::debug;
+use log::{debug, info};
 use now::DateTimeNow;
 use poem::{
     endpoint::{EmbeddedFileEndpoint, EmbeddedFilesEndpoint},
@@ -40,6 +40,11 @@ async fn new_question(Data(state): Data<&AppState>) -> poem::Result<Json<Questio
         log::error!("Error: {:?}", e);
         anyhow::Error::msg("Failed to create new question")
     })?;
+    debug!(
+        "id: {}, question: {}",
+        question.get_id(),
+        question.get_question()
+    );
     Ok(Json(QuestionResponse {
         id: question.get_id(),
         question: question.get_question(),
@@ -63,6 +68,7 @@ async fn submit_answer(
     Json(req): Json<SubmitAnswerRequest>,
     Data(state): Data<&AppState>,
 ) -> poem::Result<Json<SubmitAnswerResponse>> {
+    debug!("id: {}, answer: {}", req.id, req.answer);
     let ret = state
         .repo
         .answer_question(req.id, req.answer)
@@ -71,6 +77,7 @@ async fn submit_answer(
             log::error!("Error: {:?}", e);
             anyhow::Error::msg("Failed to answer the question")
         })?;
+    debug!("correct: {}", ret);
     Ok(Json(SubmitAnswerResponse {
         id: req.id,
         correct: ret,
@@ -115,10 +122,12 @@ async fn get_statistics(
                 .map(|dt| dt.with_timezone(&chrono::Utc))
         })
         .map_or(Ok(None), |v| v.map(Some))?;
+    debug!("start: {:?}, end: {:?}", start, end);
     let (correct, total) = state.repo.get_statistics(start, end).await.map_err(|e| {
         log::error!("Error: {:?}", e);
         anyhow::Error::msg("Failed to get statistics")
     })?;
+    debug!("correct: {}, total: {}", correct, total);
     Ok(Json(StatisticsResponse { correct, total }))
 }
 
@@ -137,6 +146,7 @@ async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<Sta
             log::error!("Error: {:?}", e);
             anyhow::Error::msg("Failed to get statistics")
         })?;
+    debug!("correct: {}, total: {}", correct, total);
     Ok(Json(StatisticsResponse { correct, total }))
 }
 
@@ -144,7 +154,7 @@ async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<Sta
 async fn get_mistake_collection(
     Data(state): Data<&AppState>,
 ) -> poem::Result<Json<Vec<QuestionResponse>>> {
-    let ret = state
+    let ret: Vec<QuestionResponse> = state
         .repo
         .mistake_collection()
         .await
@@ -155,6 +165,7 @@ async fn get_mistake_collection(
         .into_iter()
         .map(|(id, question, _)| QuestionResponse { id, question })
         .collect();
+    debug!("mistake_collection contains {} items", ret.len());
     Ok(Json(ret))
 }
 
@@ -162,6 +173,7 @@ async fn get_mistake_collection(
 async fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
+    info!("Initializing the database");
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "questions.db".to_string());
     let state = AppState {
         repo: test_repo::TestRepo::new(&db_path).await?,
@@ -177,8 +189,11 @@ async fn main() -> anyhow::Result<()> {
         .nest("/", EmbeddedFilesEndpoint::<Files>::new())
         .with(Cors::new().allow_methods(vec!["GET", "POST"]))
         .with(AddData::new(state));
+
+    info!("Starting server");
     Server::new(TcpListener::bind("0.0.0.0:3001"))
         .run(app)
         .await?;
+    info!("Server stopped");
     Ok(())
 }

@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+use log::trace;
 use rand::Rng;
 
 #[derive(Clone)]
@@ -14,6 +15,7 @@ impl Question {
     pub fn new() -> Self {
         let mut rng = rand::thread_rng();
         let (question, answer) = generate_question(&mut rng);
+        trace!("Generated question: {} = {}", question, answer);
         Self {
             id: 0,
             question,

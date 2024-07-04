@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
+use log::debug;
 use tokio_rusqlite::Connection;
 
 use crate::question::Question;
@@ -18,16 +19,18 @@ impl TestRepo {
         let connection = Connection::open(path).await?;
         connection
             .call(|conn| {
-                conn.execute(
-                    "CREATE TABLE IF NOT EXISTS questions (
+                conn.execute_batch(
+                    "BEGIN;
+                    CREATE TABLE IF NOT EXISTS questions (
                     id INTEGER PRIMARY KEY,
                     question TEXT NOT NULL,
                     expected_answer INTEGER NOT NULL,
                     answer INTEGER,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     answered_at TIMESTAMP
-                )",
-                    [],
+                );
+                CREATE INDEX IF NOT EXISTS idx_created_at ON questions (created_at);
+                ",
                 )?;
                 Ok(())
             })
@@ -40,6 +43,7 @@ impl TestRepo {
         Ok(self
             .connection
             .call(|conn| {
+                debug!("Finding existing unanswered question");
                 let mut stmt = conn.prepare("SELECT id, question, expected_answer FROM questions WHERE answer is NULL ORDER BY RANDOM() LIMIT 1")?;
                 if let Ok(question) = stmt.query_row([], |row| {
                     Ok(Question::from_question(
@@ -49,9 +53,11 @@ impl TestRepo {
                         None,
                     ))
                 }) {
+                    debug!("Found existing unanswered question, id: {}, question: {}", question.get_id(), question.get_question());
                     return Ok(question);
                 }
 
+                debug!("Creating new question");
                 let mut stmt = conn.prepare("INSERT INTO questions (question, expected_answer) VALUES (?1, ?2) RETURNING id")?;
 
                 let question = Question::new();
@@ -59,6 +65,7 @@ impl TestRepo {
                     (question.get_question(), question.get_expected_answer()),
                     |row| row.get(0),
                 )?;
+                debug!("Insert new question, id: {}, question: {}", id, question.get_question());
                 let mut stmt = conn.prepare("SELECT id, question, expected_answer FROM questions WHERE id = ?1")?;
                 let question = stmt.query_row([id], |row| {
                     Ok(Question::from_question(
@@ -68,6 +75,7 @@ impl TestRepo {
                         None,
                     ))
                 })?;
+                debug!("Created new question, id: {}, question: {}", question.get_id(), question.get_question());
                 Ok(question)
             })
             .await?)
@@ -77,6 +85,7 @@ impl TestRepo {
         Ok(self
             .connection
             .call(move |conn| {
+                debug!("Answering question, id: {}, answer: {}", id, answer);
                 conn.execute(
                     "UPDATE questions SET answer = ?1, answered_at = CURRENT_TIMESTAMP WHERE id = ?2",
                     (answer, id),
@@ -86,6 +95,7 @@ impl TestRepo {
                     [id],
                     |row| row.get(0),
                 )?;
+                debug!("The answer is correct: {}", expected_answer == answer);
                 Ok(expected_answer == answer)
             })
             .await?)
@@ -96,6 +106,7 @@ impl TestRepo {
         start: Option<DateTime<Utc>>,
         end: Option<DateTime<Utc>>,
     ) -> anyhow::Result<(i64, i64)> {
+        debug!("start: {:?}, end: {:?}", start, end);
         Ok(self
             .connection
             .call(move |conn| {
@@ -115,6 +126,7 @@ impl TestRepo {
                     ],
                     |row| row.get(0),
                 )?;
+                debug!("correct: {}, total: {}", correct, total);
                 Ok((correct, total))
                     }).await?)
     }
