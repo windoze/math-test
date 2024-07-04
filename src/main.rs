@@ -2,6 +2,7 @@ use std::{env, time::Duration};
 
 use chrono::Utc;
 use chrono_tz::Tz;
+use clap::{command, Parser};
 use env_logger::Env;
 use log::{debug, info};
 use now::DateTimeNow;
@@ -19,12 +20,25 @@ use rust_embed::RustEmbed;
 mod question;
 mod test_repo;
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Listen address
+    #[arg(short, long, default_value = "localhost:3001")]
+    listen: String,
+
+    /// Default time zone
+    #[arg(short, long, default_value = "Asia/Shanghai")]
+    timezone: String,
+}
+
 #[derive(RustEmbed)]
 #[folder = "frontend/dist"]
 pub struct Files;
 
 #[derive(Clone)]
 struct AppState {
+    time_zone: String,
     repo: test_repo::TestRepo,
 }
 
@@ -133,7 +147,7 @@ async fn get_statistics(
 
 #[handler]
 async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<StatisticsResponse>> {
-    let tz: Tz = "Asia/Shanghai".parse().unwrap();
+    let tz: Tz = state.time_zone.parse().unwrap();
     let now = Utc::now().with_timezone(&tz);
     let day_start = now.beginning_of_day().with_timezone(&Utc);
     debug!("day_start: {:?}", day_start);
@@ -171,11 +185,13 @@ async fn get_mistake_collection(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
+    let args: Args = Args::parse();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     info!("Initializing the database");
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "questions.db".to_string());
     let state = AppState {
+        time_zone: args.timezone,
         repo: test_repo::TestRepo::new(&db_path).await?,
     };
 
@@ -190,8 +206,8 @@ async fn main() -> anyhow::Result<()> {
         .with(Cors::new().allow_methods(vec!["GET", "POST"]))
         .with(AddData::new(state));
 
-    info!("Starting server");
-    Server::new(TcpListener::bind("0.0.0.0:3001"))
+    info!("Starting server at {}", args.listen);
+    Server::new(TcpListener::bind(args.listen))
         .run_with_graceful_shutdown(
             app,
             async move {
