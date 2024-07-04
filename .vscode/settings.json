@@ -4,5 +4,5 @@
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.formatOnSave": true
   },
-  "cSpell.words": ["rusqlite"]
+  "cSpell.words": ["rusqlite", "Rustls"]
 }

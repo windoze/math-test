@@ -8,6 +8,7 @@ anyhow = "1.0"
 log = "0.4"
 rusqlite = { version = "0.31", features = ["bundled-full"] }
 tokio-rusqlite = "0.5"
+async-stream = "0.3"
 poem = { version = "3", features = [
     "anyhow",
     "rustls",

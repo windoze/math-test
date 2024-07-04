@@ -1,4 +1,4 @@
-use std::{env, time::Duration};
+use std::{env, path::PathBuf, time::Duration};
 
 use chrono::Utc;
 use chrono_tz::Tz;
@@ -9,7 +9,7 @@ use now::DateTimeNow;
 use poem::{
     endpoint::{EmbeddedFileEndpoint, EmbeddedFilesEndpoint},
     handler,
-    listener::TcpListener,
+    listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
     middleware::{AddData, Cors},
     post,
     web::{Data, Json},
@@ -19,18 +19,6 @@ use rust_embed::RustEmbed;
 
 mod question;
 mod test_repo;
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// Listen address
-    #[arg(short, long, default_value = "localhost:3001")]
-    listen: String,
-
-    /// Default time zone
-    #[arg(short, long, default_value = "Asia/Shanghai")]
-    timezone: String,
-}
 
 #[derive(RustEmbed)]
 #[folder = "frontend/dist"]
@@ -183,15 +171,52 @@ async fn get_mistake_collection(
     Ok(Json(ret))
 }
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Listen address
+    #[arg(short, long, default_value = "localhost:3001")]
+    listen: String,
+
+    /// Default time zone, used to calculate today's statistics
+    #[arg(short, long, default_value = "Asia/Shanghai")]
+    timezone: String,
+
+    /// Database path, default to "questions.db" under the current directory
+    #[arg(short, long)]
+    database: Option<PathBuf>,
+
+    /// Enable TLS
+    #[arg(short, long, default_value = "false")]
+    tls: bool,
+
+    /// Path to the certificate file
+    #[arg(long)]
+    cert: Option<PathBuf>,
+
+    /// Path to the private key file
+    #[arg(long)]
+    key: Option<PathBuf>,
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args: Args = Args::parse();
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    if args.tls && (args.cert.is_none() || args.key.is_none()) {
+        log::error!("Certificate and private key are required for TLS");
+        return Ok(());
+    }
+
     info!("Initializing the database");
-    let db_path = env::var("DB_PATH").unwrap_or_else(|_| "questions.db".to_string());
+    let db_path = args.database.clone().unwrap_or_else(|| {
+        env::var("DB_PATH")
+            .unwrap_or_else(|_| "questions.db".to_string())
+            .into()
+    });
     let state = AppState {
-        time_zone: args.timezone,
+        time_zone: args.timezone.clone(),
         repo: test_repo::TestRepo::new(&db_path).await?,
     };
 
@@ -206,16 +231,45 @@ async fn main() -> anyhow::Result<()> {
         .with(Cors::new().allow_methods(vec!["GET", "POST"]))
         .with(AddData::new(state));
 
-    info!("Starting server at {}", args.listen);
-    Server::new(TcpListener::bind(args.listen))
-        .run_with_graceful_shutdown(
-            app,
-            async move {
-                let _ = tokio::signal::ctrl_c().await;
-            },
-            Some(Duration::from_secs(5)),
-        )
-        .await?;
+    if args.tls {
+        info!("Starting server at https://{}", &args.listen);
+        let listener = TcpListener::bind(args.listen.clone()).rustls(async_stream::stream! {
+            loop {
+                if let Ok(tls_config) = load_tls_config(&args) {
+                    yield tls_config;
+                }
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+            }
+        });
+        Server::new(listener)
+            .run_with_graceful_shutdown(
+                app,
+                async move {
+                    let _ = tokio::signal::ctrl_c().await;
+                },
+                Some(Duration::from_secs(5)),
+            )
+            .await
+    } else {
+        info!("Starting server at http://{}", &args.listen); // DevSkim: ignore DS137138
+        Server::new(TcpListener::bind(args.listen.clone()))
+            .run_with_graceful_shutdown(
+                app,
+                async move {
+                    let _ = tokio::signal::ctrl_c().await;
+                },
+                Some(Duration::from_secs(5)),
+            )
+            .await
+    }?;
     info!("Server stopped");
     Ok(())
+}
+
+fn load_tls_config(args: &Args) -> Result<RustlsConfig, std::io::Error> {
+    Ok(RustlsConfig::new().fallback(
+        RustlsCertificate::new()
+            .cert(std::fs::read(args.cert.to_owned().unwrap())?)
+            .key(std::fs::read(args.key.to_owned().unwrap())?),
+    ))
 }
