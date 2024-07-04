@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, time::Duration};
 
 use chrono::Utc;
 use chrono_tz::Tz;
@@ -192,7 +192,13 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting server");
     Server::new(TcpListener::bind("0.0.0.0:3001"))
-        .run(app)
+        .run_with_graceful_shutdown(
+            app,
+            async move {
+                let _ = tokio::signal::ctrl_c().await;
+            },
+            Some(Duration::from_secs(5)),
+        )
         .await?;
     info!("Server stopped");
     Ok(())
