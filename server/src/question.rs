@@ -4,9 +4,10 @@ use rand::Rng;
 
 #[derive(Clone)]
 pub struct Question {
+    id: i64,
     question: String,
-    answer: i64,
-    current_input: Option<i64>,
+    expected_answer: i64,
+    user_answer: Option<i64>,
 }
 
 impl Question {
@@ -14,10 +15,29 @@ impl Question {
         let mut rng = rand::thread_rng();
         let (question, answer) = generate_question(&mut rng);
         Self {
+            id: 0,
             question,
-            answer,
-            current_input: None,
+            expected_answer: answer,
+            user_answer: None,
         }
+    }
+
+    pub fn from_question(
+        id: i64,
+        question: String,
+        expected_answer: i64,
+        user_answer: Option<i64>,
+    ) -> Self {
+        Self {
+            id,
+            question,
+            expected_answer,
+            user_answer,
+        }
+    }
+
+    pub fn get_id(&self) -> i64 {
+        self.id
     }
 
     pub fn get_question(&self) -> String {
@@ -25,13 +45,11 @@ impl Question {
     }
 
     pub fn get_expected_answer(&self) -> i64 {
-        self.answer
+        self.expected_answer
     }
 
     fn get_input(&self) -> String {
-        self.current_input
-            .map(|x| x.to_string())
-            .unwrap_or_default()
+        self.user_answer.map(|x| x.to_string()).unwrap_or_default()
     }
 }
 

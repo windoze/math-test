@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 use test_repo::{Question, Statistic};
 use tracing::Level;
 
+mod api;
 mod test_repo;
 
 const _STYLE: &str = manganis::mg!(file("public/tailwind.css"));
@@ -96,8 +97,20 @@ fn Statistic() -> Element {
 
 #[component]
 fn Home() -> Element {
+    let question = use_resource(|| Question::new());
+    let question: Question = match *question.read_unchecked() {
+        Some(Ok(question)) => question,
+        Some(Err(err)) => {
+            // if there was an error, render the error
+            return rsx! {"An error occurred while fetching stories {err}"};
+        }
+        None => {
+            // if the future is not resolved yet, render a loading message
+            return rsx! {"Loading items"};
+        }
+    };
     use_context_provider(|| Signal::new(Statistic::new()));
-    use_context_provider(|| Signal::new(Question::new()));
+    use_context_provider(|| Signal::new(question));
 
     rsx! {
         div {

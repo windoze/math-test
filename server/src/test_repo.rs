@@ -36,20 +36,39 @@ impl TestRepo {
         Ok(Self { connection })
     }
 
-    pub async fn new_question(&self) -> anyhow::Result<(i64, Question)> {
+    pub async fn new_question(&self) -> anyhow::Result<Question> {
         Ok(self
             .connection
             .call(|conn| {
-                let mut stmt = conn.prepare(
-                "INSERT INTO questions (question, expected_answer) VALUES (?1, ?2) RETURNING id",
-            )?;
+                let mut stmt = conn.prepare("SELECT id, question, expected_answer FROM questions WHERE answer is NULL ORDER BY RANDOM() LIMIT 1")?;
+                if let Ok(question) = stmt.query_row([], |row| {
+                    Ok(Question::from_question(
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        None,
+                    ))
+                }) {
+                    return Ok(question);
+                }
+
+                let mut stmt = conn.prepare("INSERT INTO questions (question, expected_answer) VALUES (?1, ?2) RETURNING id")?;
 
                 let question = Question::new();
                 let id: i64 = stmt.query_row(
                     (question.get_question(), question.get_expected_answer()),
                     |row| row.get(0),
                 )?;
-                Ok((id, question))
+                let mut stmt = conn.prepare("SELECT id, question, expected_answer FROM questions WHERE id = ?1")?;
+                let question = stmt.query_row([id], |row| {
+                    Ok(Question::from_question(
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        None,
+                    ))
+                })?;
+                Ok(question)
             })
             .await?)
     }
@@ -81,7 +100,7 @@ impl TestRepo {
             .connection
             .call(move |conn| {
                 let correct: i64 = conn.query_row(
-                    "SELECT COUNT(*) FROM questions WHERE answer = expected_answer AND answered_at BETWEEN ?1 AND ?2",
+                    "SELECT COUNT(*) FROM questions WHERE answer is not NULL AND answer = expected_answer AND created_at BETWEEN ?1 AND ?2",
                     [
                         start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(1000)),
                         end.unwrap_or_else(Utc::now),
@@ -89,7 +108,7 @@ impl TestRepo {
                     |row| row.get(0),
                 )?;
                 let total: i64 = conn.query_row(
-                    "SELECT COUNT(*) FROM questions WHERE answered_at BETWEEN ?1 AND ?2",
+                    "SELECT COUNT(*) FROM questions WHERE answer is not NULL AND created_at BETWEEN ?1 AND ?2",
                     [
                         start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(1000)),
                         end.unwrap_or_else(Utc::now),
@@ -105,7 +124,7 @@ impl TestRepo {
             .connection
             .call(|conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT id, question, answer FROM questions WHERE answer != expected_answer",
+                    "SELECT id, question, answer FROM questions WHERE answer is null or answer != expected_answer",
                 )?;
                 let mut rows = stmt.query([])?;
                 let mut result = Vec::new();

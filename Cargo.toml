@@ -2,4 +2,4 @@
 
 resolver = "2"
 
-members = ["ui", "server"]
+members = ["server"]

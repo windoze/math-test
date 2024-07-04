@@ -1,10 +1,15 @@
 use std::env;
 
+use chrono::Utc;
+use chrono_tz::Tz;
+use env_logger::Env;
+use log::debug;
+use now::DateTimeNow;
 use poem::{
     endpoint::{EmbeddedFileEndpoint, EmbeddedFilesEndpoint},
     handler,
     listener::TcpListener,
-    middleware::AddData,
+    middleware::{AddData, Cors},
     post,
     web::{Data, Json},
     EndpointExt, Request, Route, Server,
@@ -15,7 +20,7 @@ mod question;
 mod test_repo;
 
 #[derive(RustEmbed)]
-#[folder = "../ui/dist"]
+#[folder = "../frontend/dist"]
 pub struct Files;
 
 #[derive(Clone)]
@@ -31,12 +36,12 @@ struct QuestionResponse {
 
 #[handler]
 async fn new_question(Data(state): Data<&AppState>) -> poem::Result<Json<QuestionResponse>> {
-    let (id, question) = state.repo.new_question().await.map_err(|e| {
+    let question = state.repo.new_question().await.map_err(|e| {
         log::error!("Error: {:?}", e);
         anyhow::Error::msg("Failed to create new question")
     })?;
     Ok(Json(QuestionResponse {
-        id,
+        id: question.get_id(),
         question: question.get_question(),
     }))
 }
@@ -47,11 +52,17 @@ struct SubmitAnswerRequest {
     answer: i64,
 }
 
+#[derive(serde::Serialize)]
+struct SubmitAnswerResponse {
+    id: i64,
+    correct: bool,
+}
+
 #[handler]
 async fn submit_answer(
     Json(req): Json<SubmitAnswerRequest>,
     Data(state): Data<&AppState>,
-) -> poem::Result<Json<bool>> {
+) -> poem::Result<Json<SubmitAnswerResponse>> {
     let ret = state
         .repo
         .answer_question(req.id, req.answer)
@@ -60,7 +71,10 @@ async fn submit_answer(
             log::error!("Error: {:?}", e);
             anyhow::Error::msg("Failed to answer the question")
         })?;
-    Ok(Json(ret))
+    Ok(Json(SubmitAnswerResponse {
+        id: req.id,
+        correct: ret,
+    }))
 }
 
 #[derive(serde::Deserialize)]
@@ -69,11 +83,17 @@ struct GetStatisticsRequest {
     end: Option<String>,
 }
 
+#[derive(serde::Serialize)]
+struct StatisticsResponse {
+    correct: i64,
+    total: i64,
+}
+
 #[handler]
 async fn get_statistics(
     req: &Request,
     Data(state): Data<&AppState>,
-) -> poem::Result<Json<(i64, i64)>> {
+) -> poem::Result<Json<StatisticsResponse>> {
     let GetStatisticsRequest { start, end } = req.params()?;
     let start = start
         .map(|s| {
@@ -99,7 +119,25 @@ async fn get_statistics(
         log::error!("Error: {:?}", e);
         anyhow::Error::msg("Failed to get statistics")
     })?;
-    Ok(Json((correct, total)))
+    Ok(Json(StatisticsResponse { correct, total }))
+}
+
+#[handler]
+async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<StatisticsResponse>> {
+    let tz: Tz = "Asia/Shanghai".parse().unwrap();
+    let now = Utc::now().with_timezone(&tz);
+    let day_start = now.beginning_of_day().with_timezone(&Utc);
+    debug!("day_start: {:?}", day_start);
+
+    let (correct, total) = state
+        .repo
+        .get_statistics(Some(day_start), None)
+        .await
+        .map_err(|e| {
+            log::error!("Error: {:?}", e);
+            anyhow::Error::msg("Failed to get statistics")
+        })?;
+    Ok(Json(StatisticsResponse { correct, total }))
 }
 
 #[handler]
@@ -122,9 +160,7 @@ async fn get_mistake_collection(
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "poem=warn");
-    }
+    env_logger::Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     let db_path = env::var("DB_PATH").unwrap_or_else(|_| "questions.db".to_string());
     let state = AppState {
@@ -136,8 +172,10 @@ async fn main() -> anyhow::Result<()> {
         .at("/api/submit-answer", post(submit_answer))
         .at("/api/statistics", get_statistics)
         .at("/api/mistake-collection", get_mistake_collection)
+        .at("/api/today", today_statistics)
         .at("/", EmbeddedFileEndpoint::<Files>::new("index.html"))
         .nest("/", EmbeddedFilesEndpoint::<Files>::new())
+        .with(Cors::new().allow_methods(vec!["GET", "POST"]))
         .with(AddData::new(state));
     Server::new(TcpListener::bind("0.0.0.0:3001"))
         .run(app)

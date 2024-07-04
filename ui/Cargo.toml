@@ -9,8 +9,10 @@ edition = "2021"
 [dependencies]
 manganis = { version = "0.2.1" }
 dioxus = { version = "0.5", features = ["web", "router"] }
-rand = "0.8"
-getrandom = { version = "0.2", features = ["js"] }
+anyhow = "1.0"
+futures = "0.3"
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
 
 # Debug
 tracing = "0.1.40"
