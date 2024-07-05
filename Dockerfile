@@ -16,4 +16,4 @@ RUN apk add --update bash
 COPY --from=builder /usr/src/target/x86_64-unknown-linux-musl/release/server /app/server
 WORKDIR /data
 EXPOSE 3001
-CMD ["/app/server"]
+CMD ["/app/server", "--listen", "0.0.0.0:3001"]
