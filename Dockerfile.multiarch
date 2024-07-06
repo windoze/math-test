@@ -16,7 +16,8 @@ COPY --from=xx / /
 WORKDIR /usr/src/
 COPY . ./
 COPY --from=ui-builder /usr/src/frontend/dist /usr/src/frontend/dist
-RUN BUILD_UI_ENABLED=0 cargo build --release --target=$(xx-info march)-unknown-linux-musl --package=standalone && \
+ENV BUILD_UI_ENABLED=0
+RUN cargo build --release --target=$(xx-info march)-unknown-linux-musl --package=standalone && \
     cp /usr/src/target/$(xx-info march)-unknown-linux-musl/release/piper /
 
 # Bundle Stage
