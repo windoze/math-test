@@ -1,229 +1,315 @@
-#![allow(non_snake_case)]
+use std::{env, path::PathBuf, time::Duration};
 
-use dioxus::prelude::*;
-use tracing::Level;
+use chrono::Utc;
+use chrono_tz::Tz;
+use clap::{command, Parser};
+use env_logger::Env;
+use log::{debug, info};
+use now::{DateTimeNow, TimeZoneNow};
+use poem::{
+    endpoint::{EmbeddedFileEndpoint, EmbeddedFilesEndpoint},
+    handler,
+    http::StatusCode,
+    listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
+    middleware::{AddData, Cors},
+    post,
+    web::{Data, Json, Path},
+    EndpointExt, Request, Route, Server,
+};
+use rust_embed::RustEmbed;
 
+mod question;
 mod test_repo;
 
-const _STYLE: &str = manganis::mg!(file("public/tailwind.css"));
-
-#[derive(Clone, Routable, Debug, PartialEq)]
-enum Route {
-    #[route("/")]
-    Home {},
-}
-
-fn main() {
-    // Init logger
-    dioxus_logger::init(Level::INFO).expect("failed to init logger");
-    launch(App);
-}
-
-fn App() -> Element {
-    rsx! {
-        Router::<Route> {}
-    }
-}
+#[derive(RustEmbed)]
+#[folder = "frontend/dist"]
+pub struct Files;
 
 #[derive(Clone)]
-struct Question {
+struct AppState {
+    timezone: String,
+    repo: test_repo::TestRepo,
+}
+
+#[derive(serde::Serialize)]
+struct QuestionResponse {
+    id: i64,
     question: String,
+}
+
+#[handler]
+async fn new_question(Data(state): Data<&AppState>) -> poem::Result<Json<QuestionResponse>> {
+    let question = state.repo.new_question().await.map_err(|e| {
+        log::error!("Error: {:?}", e);
+        anyhow::Error::msg("Failed to create new question")
+    })?;
+    debug!(
+        "id: {}, question: {}",
+        question.get_id(),
+        question.get_question()
+    );
+    Ok(Json(QuestionResponse {
+        id: question.get_id(),
+        question: question.get_question(),
+    }))
+}
+
+#[derive(serde::Deserialize)]
+struct SubmitAnswerRequest {
+    id: i64,
     answer: i64,
-    current_input: Option<i64>,
 }
 
-impl Question {
-    fn new() -> Self {
-        let mut rng = rand::thread_rng();
-        let (question, answer) = test_repo::generate_question(&mut rng);
-        Self {
-            question,
-            answer,
-            current_input: None,
-        }
-    }
-
-    fn check_answer(&self) -> bool {
-        self.current_input == Some(self.answer)
-    }
-
-    fn input_digit(&mut self, digit: i64) {
-        self.current_input = Some(self.current_input.unwrap_or(0) * 10 + digit);
-    }
-
-    fn backspace(&mut self) {
-        self.current_input = self.current_input.map(|x| x / 10);
-        if self.current_input == Some(0) {
-            self.current_input = None;
-        }
-    }
-
-    fn get_input(&self) -> String {
-        self.current_input
-            .map(|x| x.to_string())
-            .unwrap_or_default()
-    }
-
-    fn can_submit(&self) -> bool {
-        self.current_input.is_some()
-    }
+#[derive(serde::Serialize)]
+struct SubmitAnswerResponse {
+    id: i64,
+    correct: bool,
 }
 
-#[derive(Clone)]
-struct Statistic {
+#[handler]
+async fn submit_answer(
+    Json(req): Json<SubmitAnswerRequest>,
+    Data(state): Data<&AppState>,
+) -> poem::Result<Json<SubmitAnswerResponse>> {
+    debug!("id: {}, answer: {}", req.id, req.answer);
+    let ret = state
+        .repo
+        .answer_question(req.id, req.answer)
+        .await
+        .map_err(|e| {
+            log::error!("Error: {:?}", e);
+            anyhow::Error::msg("Failed to answer the question")
+        })?;
+    debug!("correct: {}", ret);
+    Ok(Json(SubmitAnswerResponse {
+        id: req.id,
+        correct: ret,
+    }))
+}
+
+#[derive(serde::Deserialize)]
+struct GetStatisticsRequest {
+    start: Option<String>,
+    end: Option<String>,
+}
+
+#[derive(serde::Serialize)]
+struct StatisticsResponse {
     correct: i64,
     total: i64,
 }
 
-impl Statistic {
-    fn new() -> Self {
-        Self {
-            correct: 0,
-            total: 0,
-        }
-    }
-
-    fn update(&mut self, correct: bool) {
-        self.total += 1;
-        if correct {
-            self.correct += 1;
-        }
-    }
-
-    fn get_accuracy(&self) -> f64 {
-        100.0f64
-            * if self.total == 0 {
-                0.0
-            } else {
-                self.correct as f64 / self.total as f64
-            }
-    }
+#[handler]
+async fn get_statistics(
+    req: &Request,
+    Data(state): Data<&AppState>,
+) -> poem::Result<Json<StatisticsResponse>> {
+    let GetStatisticsRequest { start, end } = req.params()?;
+    let start = start
+        .map(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .map_err(|e| {
+                    log::error!("Error: {:?}", e);
+                    anyhow::Error::msg("Failed to parse start time")
+                })
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        })
+        .map_or(Ok(None), |v| v.map(Some))?;
+    let end = end
+        .map(|s| {
+            chrono::DateTime::parse_from_rfc3339(&s)
+                .map_err(|e| {
+                    log::error!("Error: {:?}", e);
+                    anyhow::Error::msg("Failed to parse end time")
+                })
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+        })
+        .map_or(Ok(None), |v| v.map(Some))?;
+    debug!("start: {:?}, end: {:?}", start, end);
+    let (correct, total) = state.repo.get_statistics(start, end).await.map_err(|e| {
+        log::error!("Error: {:?}", e);
+        anyhow::Error::msg("Failed to get statistics")
+    })?;
+    debug!("correct: {}, total: {}", correct, total);
+    Ok(Json(StatisticsResponse { correct, total }))
 }
 
-#[component]
-fn CalcButton(digit: i64) -> Element {
-    let mut input = consume_context::<Signal<Question>>();
+#[handler]
+async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<StatisticsResponse>> {
+    let tz: Tz = state.timezone.parse().unwrap();
+    let now = tz.now();
+    let day_start = now.beginning_of_day().with_timezone(&Utc);
+    debug!("day_start: {:?}", day_start);
 
-    rsx! {
-        div {
-            class: "text-4xl text-center text-white bg-green-800 border-0 py-4 px-3 focus:outline-none hover:bg-green-700 rounded mt-4 md:mt-4",
-            onclick: move |_| {
-                input.write().input_digit(digit);
-            },
-            "{digit}"
-        }
-    }
+    let (correct, total) = state
+        .repo
+        .get_statistics(Some(day_start), None)
+        .await
+        .map_err(|e| {
+            log::error!("Error: {:?}", e);
+            anyhow::Error::msg("Failed to get statistics")
+        })?;
+    debug!("correct: {}, total: {}", correct, total);
+    Ok(Json(StatisticsResponse { correct, total }))
 }
 
-#[component]
-fn NumberDisplay() -> Element {
-    let input = consume_context::<Signal<Question>>();
-
-    rsx! {
-        div {
-            class: "font-mono font-black text-4xl bg-green-300 border-0 py-4 px-3 rounded text-base mt-10",
-            "{input.read().question} = {input.read().get_input()}"
-        }
+#[handler]
+async fn get_daily_statistics(
+    Data(state): Data<&AppState>,
+    Path(date): Path<String>,
+) -> poem::Result<Json<StatisticsResponse>> {
+    let parts: Vec<&str> = date.split('-').collect();
+    if parts.len() != 3 {
+        return Err(poem::Error::from_string(
+            "Invalid date",
+            StatusCode::BAD_REQUEST,
+        ));
     }
+    let (year, month, day) = (parts[0], parts[1], parts[2]);
+    Ok(state
+        .repo
+        .get_daily_statistics(
+            year.parse().map_err(|e| {
+                log::error!("Error: {:?}", e);
+                anyhow::Error::msg("Invalid year")
+            })?,
+            month.parse().map_err(|e| {
+                log::error!("Error: {:?}", e);
+                anyhow::Error::msg("Invalid month")
+            })?,
+            day.parse().map_err(|e| {
+                log::error!("Error: {:?}", e);
+                anyhow::Error::msg("Invalid day")
+            })?,
+            state.timezone.clone(),
+        )
+        .await
+        .map_err(|e| {
+            log::error!("Error: {:?}", e);
+            anyhow::Error::msg("Failed to get daily statistics")
+        })
+        .map(|(correct, total)| Json(StatisticsResponse { correct, total }))?)
 }
 
-#[component]
-fn Statistic() -> Element {
-    let stat = consume_context::<Signal<Statistic>>();
+#[handler]
+async fn get_mistake_collection(
+    Data(state): Data<&AppState>,
+) -> poem::Result<Json<Vec<QuestionResponse>>> {
+    let ret: Vec<QuestionResponse> = state
+        .repo
+        .mistake_collection()
+        .await
+        .map_err(|e| {
+            log::error!("Error: {:?}", e);
+            anyhow::Error::msg("Failed to get mistake collection")
+        })?
+        .into_iter()
+        .map(|(id, question, _)| QuestionResponse { id, question })
+        .collect();
+    debug!("mistake_collection contains {} items", ret.len());
+    Ok(Json(ret))
+}
 
-    let accuracy = stat.read().get_accuracy();
-    let color = if accuracy >= 90.0 {
-        "text-green-500"
-    } else if accuracy >= 70.0 {
-        "text-yellow-500"
-    } else {
-        "text-red-500"
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Listen address
+    #[arg(short, long, default_value = "localhost:3001")]
+    listen: String,
+
+    /// Default time zone, used to calculate today's statistics
+    #[arg(long, default_value = "Asia/Shanghai")]
+    timezone: String,
+
+    /// Database path, default to "questions.db" under the current directory
+    #[arg(short, long)]
+    database: Option<PathBuf>,
+
+    /// Enable TLS
+    #[arg(short, long, default_value = "false")]
+    tls: bool,
+
+    /// Path to the certificate file
+    #[arg(long)]
+    cert: Option<PathBuf>,
+
+    /// Path to the private key file
+    #[arg(long)]
+    key: Option<PathBuf>,
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    let args: Args = Args::parse();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+
+    if args.tls && (args.cert.is_none() || args.key.is_none()) {
+        log::error!("Certificate and private key are required for TLS");
+        return Ok(());
+    }
+
+    info!("Initializing the database");
+    let db_path = args.database.clone().unwrap_or_else(|| {
+        env::var("DB_PATH")
+            .unwrap_or_else(|_| "questions.db".to_string())
+            .into()
+    });
+    let state = AppState {
+        timezone: args.timezone.clone(),
+        repo: test_repo::TestRepo::new(&db_path).await?,
     };
 
-    let accuracy = format!("{:.2}%", accuracy);
+    let app = Route::new()
+        .at("/api/new-question", post(new_question))
+        .at("/api/submit-answer", post(submit_answer))
+        .at("/api/statistics", get_statistics)
+        .at("/api/mistake-collection", get_mistake_collection)
+        .at("/api/today", today_statistics)
+        .at("/api/daily/:date", get_daily_statistics)
+        .at("/", EmbeddedFileEndpoint::<Files>::new("index.html"))
+        .nest("/", EmbeddedFilesEndpoint::<Files>::new())
+        .with(Cors::new().allow_methods(vec!["GET", "POST"]))
+        .with(AddData::new(state));
 
-    rsx! {
-        div {
-            class: "mt-20 text-3xl text-center grid gap-4 grid-cols-2",
-            div {
-                "做对:"
+    if args.tls {
+        info!("Starting server at https://{}", &args.listen);
+        let listener = TcpListener::bind(args.listen.clone()).rustls(async_stream::stream! {
+            loop {
+                if let Ok(tls_config) = load_tls_config(&args) {
+                    yield tls_config;
+                }
+                tokio::time::sleep(Duration::from_secs(3600)).await;
             }
-            div {
-                "{stat.read().correct}"
-            }
-            div {
-                "总数:"
-            }
-            div {
-                "{stat.read().total}"
-            }
-            div {
-                "正确率:"
-            }
-            div {
-                class: "{color}",
-                "{accuracy}"
-            }
-        }
-    }
+        });
+        Server::new(listener)
+            .run_with_graceful_shutdown(
+                app,
+                async move {
+                    let _ = tokio::signal::ctrl_c().await;
+                },
+                Some(Duration::from_secs(5)),
+            )
+            .await
+    } else {
+        info!("Starting server at http://{}", &args.listen); // DevSkim: ignore DS137138
+        Server::new(TcpListener::bind(args.listen.clone()))
+            .run_with_graceful_shutdown(
+                app,
+                async move {
+                    let _ = tokio::signal::ctrl_c().await;
+                },
+                Some(Duration::from_secs(5)),
+            )
+            .await
+    }?;
+    info!("Server stopped");
+    Ok(())
 }
 
-#[component]
-fn Home() -> Element {
-    use_context_provider(|| Signal::new(Statistic::new()));
-    use_context_provider(|| Signal::new(Question::new()));
-
-    rsx! {
-        div {
-            class: "w-full max-w-md m-1.5",
-            NumberDisplay {}
-            div {
-                class: "grid gap-4 grid-cols-5 mt-10",
-                CalcButton { digit: 1 }
-                CalcButton { digit: 2 }
-                CalcButton { digit: 3 }
-                CalcButton { digit: 4 }
-                CalcButton { digit: 5 }
-                }
-            div {
-                class: "grid gap-4 grid-cols-5 mt-5",
-                CalcButton { digit: 6 }
-                CalcButton { digit: 7 }
-                CalcButton { digit: 8 }
-                CalcButton { digit: 9 }
-                CalcButton { digit: 0 }
-                }
-            div {
-                class: "grid gap-4 grid-cols-5 mt-10",
-                button {
-                    class: "text-3xl text-center text-white bg-red-800 border-0 py-4 px-3 focus:outline-none hover:bg-red-700 rounded text-base mt-4 md:mt-4 col-span-2",
-                    onclick: |_| {
-                        let mut input = consume_context::<Signal<Question>>();
-                        input.write().backspace();
-                    },
-                    "←"
-                }
-                button {
-                    class: "text-3xl text-center text-white bg-blue-800 border-0 py-4 px-3 focus:outline-none hover:bg-blue-700 rounded text-base mt-4 md:mt-4 col-start-4 col-span-2",
-                    onclick: |_| {
-                        if consume_context::<Signal<Question>>().read().can_submit() {
-                            if consume_context::<Signal<Question>>().read().check_answer() {
-                                let mut input = consume_context::<Signal<Question>>();
-                                *input.write() = Question::new();
-                                let mut stat = consume_context::<Signal<Statistic>>();
-                                stat.write().update(true);
-                            } else {
-                                let mut input = consume_context::<Signal<Question>>();
-                                *input.write() = Question::new();
-                                let mut stat = consume_context::<Signal<Statistic>>();
-                                stat.write().update(false);
-                            }
-                        }
-                    },
-                    "提交"
-                }
-            }
-            Statistic {}
-        }
-    }
+fn load_tls_config(args: &Args) -> Result<RustlsConfig, std::io::Error> {
+    Ok(RustlsConfig::new().fallback(
+        RustlsCertificate::new()
+            .cert(std::fs::read(args.cert.to_owned().unwrap())?)
+            .key(std::fs::read(args.key.to_owned().unwrap())?),
+    ))
 }
