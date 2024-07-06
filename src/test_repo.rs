@@ -137,7 +137,7 @@ impl TestRepo {
             .connection
             .call(|conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT id, question, answer FROM questions WHERE answer is null or answer != expected_answer",
+                    "SELECT id, question, answer FROM questions WHERE answer is not null AND answer != expected_answer",
                 )?;
                 let mut rows = stmt.query([])?;
                 let mut result = Vec::new();
