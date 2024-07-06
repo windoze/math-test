@@ -1,7 +1,9 @@
 use std::path::Path;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeZone, Utc};
+use chrono_tz::Tz;
 use log::debug;
+use now::DateTimeNow;
 use tokio_rusqlite::Connection;
 
 use crate::question::Question;
@@ -147,5 +149,25 @@ impl TestRepo {
                 Ok(result)
             })
             .await?)
+    }
+
+    pub async fn get_daily_statistics(
+        &self,
+        year: i32,
+        month: u32,
+        day: u32,
+        timezone: String,
+    ) -> anyhow::Result<(i64, i64)> {
+        let tz: Tz = timezone.parse().unwrap();
+        let date = tz
+            .with_ymd_and_hms(year, month, day, 0, 0, 0)
+            .single()
+            .ok_or(anyhow::Error::msg("Invalid date"))?;
+        let day_start = date.beginning_of_day().with_timezone(&Utc);
+        debug!("day_start: {:?}", day_start);
+        let day_end = date.end_of_day().with_timezone(&Utc);
+        debug!("day_end: {:?}", day_end);
+
+        self.get_statistics(Some(day_start), Some(day_end)).await
     }
 }
