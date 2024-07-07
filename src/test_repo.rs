@@ -114,7 +114,7 @@ impl TestRepo {
             .connection
             .call(move |conn| {
                 let correct: i64 = conn.query_row(
-                    "SELECT COUNT(*) FROM questions WHERE answer is not NULL AND answer = expected_answer AND created_at BETWEEN ?1 AND ?2",
+                    "SELECT COUNT(*) FROM questions WHERE answer is not NULL AND answer = expected_answer AND answered_at BETWEEN ?1 AND ?2",
                     [
                         start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(1000)),
                         end.unwrap_or_else(Utc::now),
@@ -122,7 +122,7 @@ impl TestRepo {
                     |row| row.get(0),
                 )?;
                 let total: i64 = conn.query_row(
-                    "SELECT COUNT(*) FROM questions WHERE answer is not NULL AND created_at BETWEEN ?1 AND ?2",
+                    "SELECT COUNT(*) FROM questions WHERE answer is not NULL AND answered_at BETWEEN ?1 AND ?2",
                     [
                         start.unwrap_or_else(|| Utc::now() - chrono::Duration::days(1000)),
                         end.unwrap_or_else(Utc::now),
