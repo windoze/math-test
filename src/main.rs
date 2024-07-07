@@ -3,11 +3,11 @@ use std::{env, path::PathBuf, time::Duration};
 use chrono::Utc;
 use chrono_tz::Tz;
 use clap::{command, Parser};
+use embed_spa::EmbeddedSPAEndpoint;
 use env_logger::Env;
 use log::{debug, info};
 use now::{DateTimeNow, TimeZoneNow};
 use poem::{
-    endpoint::{EmbeddedFileEndpoint, EmbeddedFilesEndpoint},
     handler,
     http::StatusCode,
     listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
@@ -18,6 +18,7 @@ use poem::{
 };
 use rust_embed::RustEmbed;
 
+mod embed_spa;
 mod question;
 mod test_repo;
 
@@ -266,8 +267,7 @@ async fn main() -> anyhow::Result<()> {
         .at("/api/mistake-collection", get_mistake_collection)
         .at("/api/today", today_statistics)
         .at("/api/daily/:date", get_daily_statistics)
-        .at("/", EmbeddedFileEndpoint::<Files>::new("index.html"))
-        .nest("/", EmbeddedFilesEndpoint::<Files>::new())
+        .nest("/", EmbeddedSPAEndpoint::<Files>::new())
         .with(Cors::new().allow_methods(vec!["GET", "POST"]))
         .with(AddData::new(state));
 

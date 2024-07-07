@@ -129,6 +129,10 @@ function App() {
         {SubmitButton(question, setQuestion, setStat)}
       </div>
       {ScoreDisplay(stat)}
+      <div className='mt-20 text-3xl text-center'>
+        <a href="/last7" className='text-blue-800 hover:underline'>最近7天</a>
+        <a href="/last30" className='text-blue-800 hover:underline'>最近30天</a>
+      </div>
     </div >
   )
 }
