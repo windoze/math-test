@@ -17,14 +17,13 @@ export interface Statistics {
 }
 
 export async function newQuestion(): Promise<Question> {
-    const body = (await fetch(`${API_BASE}/new-question`, {
+    return (await fetch(`${API_BASE}/new-question`, {
         method: "POST",
     })).json();
-    return body;
 }
 
 export async function submitAnswer(questionId: number, answer: number): Promise<SubmitResponse> {
-    const body = (await fetch(`${API_BASE}/submit-answer`, {
+    return (await fetch(`${API_BASE}/submit-answer`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -34,10 +33,8 @@ export async function submitAnswer(questionId: number, answer: number): Promise<
             "answer": answer,
         }),
     })).json();
-    return body;
 }
 
 export async function todayScore(): Promise<Statistics> {
-    const body = (await fetch(`${API_BASE}/today`)).json();
-    return body;
+    return (await fetch(`${API_BASE}/today`)).json();
 }
