@@ -3,7 +3,7 @@ const API_BASE = import.meta.env.VITE_API_BASE as string;
 export interface Question {
     id: number;
     question: string;
-    currentAnswer?: number;
+    answer?: number;
 }
 
 export interface SubmitResponse {

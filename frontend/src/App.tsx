@@ -5,7 +5,7 @@ import { Question, Statistics, newQuestion, submitAnswer, todayScore } from './a
 function QuestionDisplay(question: Question) {
   return (
     <div style={{ fontSize: "2.25rem" }} className='text-2xl font-mono font-black text-left bg-green-300 border-0 py-4 px-3 rounded text-base mt-10'>
-      {question.question} = {question.currentAnswer}
+      {question.question} = {question.answer}
     </div>
   );
 }
@@ -51,7 +51,7 @@ function NumberButton(digit: number, question: Question, setQuestion: any) {
       setQuestion({
         id: question.id,
         question: question.question,
-        currentAnswer: (question.currentAnswer ?? 0) * 10 + digit
+        answer: (question.answer ?? 0) * 10 + digit
       });
     }}>{digit}</button>
   );
@@ -59,17 +59,17 @@ function NumberButton(digit: number, question: Question, setQuestion: any) {
 
 function Backspace(question: Question, setQuestion: any) {
   var newAnswer: number | undefined = undefined;
-  if ((question.currentAnswer === undefined) || (question.currentAnswer < 10)) {
+  if ((question.answer === undefined) || (question.answer < 10)) {
     newAnswer = undefined;
   } else {
-    newAnswer = Math.floor((question.currentAnswer) / 10);
+    newAnswer = Math.floor((question.answer) / 10);
   }
   return (
     <button style={{ fontSize: "1.875rem" }} className='flex justify-center items-center text-white bg-red-800 border-0 py-2 px-2 focus:outline-none hover:bg-red-700 rounded text-base mt-4 md:mt-4 col-span-2' onClick={() => {
       setQuestion({
         id: question.id,
         question: question.question,
-        currentAnswer: newAnswer,
+        answer: newAnswer,
       });
     }}><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-9">
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75 14.25 12m0 0 2.25 2.25M14.25 12l2.25-2.25M14.25 12 12 14.25m-2.58 4.92-6.374-6.375a1.125 1.125 0 0 1 0-1.59L9.42 4.83c.21-.211.497-.33.795-.33H19.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25h-9.284c-.298 0-.585-.119-.795-.33Z" />
@@ -81,9 +81,9 @@ function Backspace(question: Question, setQuestion: any) {
 function SubmitButton(question: Question, setQuestion: any, setStat: any) {
   return (
     <button style={{ fontSize: "1.875rem" }} className='text-2xl text-center text-white bg-blue-800 border-0 py-4 px-3 focus:outline-none hover:bg-blue-700 rounded text-base mt-4 md:mt-4 col-start-4 col-span-2' onClick={() => {
-      if (question.currentAnswer !== undefined) {
-        console.log(`Submitting ${question.id} ${question.currentAnswer}`);
-        submitAnswer(question.id, question.currentAnswer!!).then(() => {
+      if (question.answer !== undefined) {
+        console.log(`Submitting ${question.id} ${question.answer}`);
+        submitAnswer(question.id, question.answer!!).then(() => {
           todayScore().then(setStat).catch(console.error);
           newQuestion().then(setQuestion).catch(console.error);
         }).catch(console.error);
