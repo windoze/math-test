@@ -36,6 +36,7 @@ struct AppState {
 struct QuestionResponse {
     id: i64,
     question: String,
+    answer: Option<i64>,
 }
 
 #[handler]
@@ -52,6 +53,7 @@ async fn new_question(Data(state): Data<&AppState>) -> poem::Result<Json<Questio
     Ok(Json(QuestionResponse {
         id: question.get_id(),
         question: question.get_question(),
+        answer: question.get_answer(),
     }))
 }
 
@@ -281,7 +283,11 @@ async fn get_mistake_collection(
             anyhow::Error::msg("Failed to get mistake collection")
         })?
         .into_iter()
-        .map(|(id, question, _)| QuestionResponse { id, question })
+        .map(|(id, question, answer)| QuestionResponse {
+            id,
+            question,
+            answer,
+        })
         .collect();
     debug!("mistake_collection contains {} items", ret.len());
     Ok(Json(ret))
