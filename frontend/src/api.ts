@@ -16,6 +16,17 @@ export interface Statistics {
     correct: number,
 }
 
+export interface StatisticsWithDate {
+    date: string,
+    total: number,
+    correct: number,
+}
+
+export interface MultiStatistics {
+    scores: StatisticsWithDate[],
+    overall: Statistics,
+}
+
 export async function newQuestion(): Promise<Question> {
     return (await fetch(`${API_BASE}/new-question`, {
         method: "POST",
@@ -37,4 +48,8 @@ export async function submitAnswer(questionId: number, answer: number): Promise<
 
 export async function todayScore(): Promise<Statistics> {
     return (await fetch(`${API_BASE}/today`)).json();
+}
+
+export async function lastNScore(n: number): Promise<MultiStatistics> {
+    return (await fetch(`${API_BASE}/last${n}`)).json();
 }

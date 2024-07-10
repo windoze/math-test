@@ -7,8 +7,10 @@ import {
 import App from './App.tsx'
 import './index.css'
 import Today from './today.tsx';
-import Last7Days from './last7.tsx';
-import Last30Days from './last30.tsx';
+import {
+    Last7Days,
+    Last30Days,
+} from './lastN.tsx';
 
 const router = createBrowserRouter([
     {

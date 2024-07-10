@@ -102,6 +102,13 @@ struct StatisticsResponse {
     total: i64,
 }
 
+#[derive(serde::Serialize)]
+struct StatisticsResponseWithDate {
+    date: String,
+    correct: i64,
+    total: i64,
+}
+
 #[handler]
 async fn get_statistics(
     req: &Request,
@@ -169,7 +176,7 @@ async fn today_statistics(
 
 #[derive(serde::Serialize)]
 struct MultiStatisticsResponse {
-    scores: Vec<StatisticsResponse>,
+    scores: Vec<StatisticsResponseWithDate>,
     overall: StatisticsResponse,
 }
 
@@ -204,7 +211,7 @@ async fn last_n_days(
     let now = tz.now();
     let last_day = now.beginning_of_day();
 
-    let mut result: Vec<StatisticsResponse> = vec![];
+    let mut result: Vec<StatisticsResponseWithDate> = vec![];
     for i in 0..n {
         let date = last_day - chrono::Duration::days(n - 1 - i);
         let (correct, total) = state
@@ -221,7 +228,7 @@ async fn last_n_days(
                 anyhow::Error::msg("Failed to get daily statistics")
             })?;
         debug!("{}: correct: {}, total: {}", date, correct, total);
-        result.push(StatisticsResponse { correct, total });
+        result.push(StatisticsResponseWithDate { date: date.to_rfc3339(), correct, total });
     }
     let (correct, total) = result
         .iter()
@@ -267,7 +274,10 @@ async fn get_daily_statistics(
             log::error!("Error: {:?}", e);
             anyhow::Error::msg("Failed to get daily statistics")
         })
-        .map(|(correct, total)| Json(StatisticsResponse { correct, total }))?)
+        .map(|(correct, total)| Json(StatisticsResponse {
+            correct,
+            total,
+        }))?)
 }
 
 #[handler]
