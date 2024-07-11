@@ -53,3 +53,7 @@ export async function todayScore(): Promise<Statistics> {
 export async function lastNScore(n: number): Promise<MultiStatistics> {
     return (await fetch(`${API_BASE}/last${n}`)).json();
 }
+
+export async function mistakeCollection(): Promise<Question[]> {
+    return (await fetch(`${API_BASE}/mistake-collection`)).json();
+}

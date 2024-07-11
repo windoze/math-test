@@ -11,6 +11,7 @@ import {
     Last7Days,
     Last30Days,
 } from './lastN.tsx';
+import {Mistakes} from "./mistakes.tsx";
 
 const router = createBrowserRouter([
     {
@@ -28,6 +29,10 @@ const router = createBrowserRouter([
     {
         path: "last30",
         element: <Last30Days/>,
+    },
+    {
+        path: "mistakes",
+        element: <Mistakes/>,
     }
 ]);
 
