@@ -2,6 +2,12 @@ import {useEffect, useState} from "react";
 import {lastNScore, MultiStatistics, StatisticsWithDate} from "./api.ts";
 
 function Scores(ms: MultiStatistics) {
+    const options: Intl.DateTimeFormatOptions = {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      };      
     return <div className='relative overflow-x-auto'>
         <table className='w-full max-w-md m-1.5 text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400'>
             <thead className='text-xs text-gray-900 uppercase dark:text-gray-400'>
@@ -22,7 +28,7 @@ function Scores(ms: MultiStatistics) {
                 return <tr key={`tr-${i.toString()}`} className='bg-white dark:bg-gray-800'>
                     <th key={`td-${i}-1`} scope='row'
                         className='px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white'>
-                        {new Date(s.date).toDateString()}
+                        {new Date(s.date).toLocaleDateString(undefined, options)}
                     </th>
                     <td key={`td-${i}-2`} className={'px-6 py-4'}>
                         {s.total}
