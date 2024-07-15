@@ -62,7 +62,9 @@ impl Display for Question {
 }
 
 fn generate_question<R: Rng>(rng: &mut R) -> (String, i64) {
-    let op = rng.gen_range(0..4);
+    // Reduce the chance of division
+    let distribution = [0, 0, 1, 1, 2, 2, 3];
+    let op = distribution[rng.gen_range(0..distribution.len())];
 
     match op {
         0 => {
