@@ -1,13 +1,13 @@
 use std::{env, path::PathBuf, time::Duration};
 
-use chrono::Utc;
+use chrono::{Datelike, Utc};
 use chrono_tz::Tz;
 use clap::{command, Parser};
+use embed_spa::EmbeddedSPAEndpoint;
 use env_logger::Env;
 use log::{debug, info};
 use now::{DateTimeNow, TimeZoneNow};
 use poem::{
-    endpoint::{EmbeddedFileEndpoint, EmbeddedFilesEndpoint},
     handler,
     http::StatusCode,
     listener::{Listener, RustlsCertificate, RustlsConfig, TcpListener},
@@ -18,6 +18,7 @@ use poem::{
 };
 use rust_embed::RustEmbed;
 
+mod embed_spa;
 mod question;
 mod test_repo;
 
@@ -35,6 +36,7 @@ struct AppState {
 struct QuestionResponse {
     id: i64,
     question: String,
+    answer: Option<i64>,
 }
 
 #[handler]
@@ -51,6 +53,7 @@ async fn new_question(Data(state): Data<&AppState>) -> poem::Result<Json<Questio
     Ok(Json(QuestionResponse {
         id: question.get_id(),
         question: question.get_question(),
+        answer: question.get_answer(),
     }))
 }
 
@@ -99,6 +102,13 @@ struct StatisticsResponse {
     total: i64,
 }
 
+#[derive(serde::Serialize)]
+struct StatisticsResponseWithDate {
+    date: String,
+    correct: i64,
+    total: i64,
+}
+
 #[handler]
 async fn get_statistics(
     req: &Request,
@@ -134,9 +144,20 @@ async fn get_statistics(
     Ok(Json(StatisticsResponse { correct, total }))
 }
 
+#[derive(serde::Deserialize)]
+struct StatisticsParam {
+    timezone: Option<String>,
+}
+
 #[handler]
-async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<StatisticsResponse>> {
-    let tz: Tz = state.timezone.parse().unwrap();
+async fn today_statistics(
+    req: &Request,
+    Data(state): Data<&AppState>,
+) -> poem::Result<Json<StatisticsResponse>> {
+    let params = req.params::<StatisticsParam>()?;
+    let timezone = params.timezone.unwrap_or_else(|| state.timezone.clone());
+
+    let tz: Tz = timezone.parse().unwrap();
     let now = tz.now();
     let day_start = now.beginning_of_day().with_timezone(&Utc);
     debug!("day_start: {:?}", day_start);
@@ -151,6 +172,71 @@ async fn today_statistics(Data(state): Data<&AppState>) -> poem::Result<Json<Sta
         })?;
     debug!("correct: {}, total: {}", correct, total);
     Ok(Json(StatisticsResponse { correct, total }))
+}
+
+#[derive(serde::Serialize)]
+struct MultiStatisticsResponse {
+    scores: Vec<StatisticsResponseWithDate>,
+    overall: StatisticsResponse,
+}
+
+#[handler]
+async fn last7_statistics(
+    req: &Request,
+    Data(state): Data<&AppState>,
+) -> poem::Result<Json<MultiStatisticsResponse>> {
+    let params = req.params::<StatisticsParam>()?;
+    last_n_days(state, 7, params.timezone).await
+}
+
+#[handler]
+async fn last30_statistics(
+    req: &Request,
+    Data(state): Data<&AppState>,
+) -> poem::Result<Json<MultiStatisticsResponse>> {
+    let params = req.params::<StatisticsParam>()?;
+    last_n_days(state, 30, params.timezone).await
+}
+
+async fn last_n_days(
+    state: &AppState,
+    n: i64,
+    timezone: Option<String>,
+) -> poem::Result<Json<MultiStatisticsResponse>> {
+    let tz: Tz = timezone
+        .as_ref()
+        .unwrap_or(&state.timezone)
+        .parse()
+        .unwrap();
+    let now = tz.now();
+    let last_day = now.beginning_of_day();
+
+    let mut result: Vec<StatisticsResponseWithDate> = vec![];
+    for i in 0..n {
+        let date = last_day - chrono::Duration::days(n - 1 - i);
+        let (correct, total) = state
+            .repo
+            .get_daily_statistics(
+                date.year_ce().1 as i32,
+                date.month(),
+                date.day(),
+                state.timezone.clone(),
+            )
+            .await
+            .map_err(|e| {
+                log::error!("Error: {:?}", e);
+                anyhow::Error::msg("Failed to get daily statistics")
+            })?;
+        debug!("{}: correct: {}, total: {}", date, correct, total);
+        result.push(StatisticsResponseWithDate { date: date.to_rfc3339(), correct, total });
+    }
+    let (correct, total) = result
+        .iter()
+        .fold((0, 0), |acc, x| (acc.0 + x.correct, acc.1 + x.total));
+    Ok(Json(MultiStatisticsResponse {
+        scores: result,
+        overall: StatisticsResponse { correct, total },
+    }))
 }
 
 #[handler]
@@ -188,7 +274,10 @@ async fn get_daily_statistics(
             log::error!("Error: {:?}", e);
             anyhow::Error::msg("Failed to get daily statistics")
         })
-        .map(|(correct, total)| Json(StatisticsResponse { correct, total }))?)
+        .map(|(correct, total)| Json(StatisticsResponse {
+            correct,
+            total,
+        }))?)
 }
 
 #[handler]
@@ -204,7 +293,11 @@ async fn get_mistake_collection(
             anyhow::Error::msg("Failed to get mistake collection")
         })?
         .into_iter()
-        .map(|(id, question, _)| QuestionResponse { id, question })
+        .map(|(id, question, answer)| QuestionResponse {
+            id,
+            question,
+            answer,
+        })
         .collect();
     debug!("mistake_collection contains {} items", ret.len());
     Ok(Json(ret))
@@ -265,9 +358,10 @@ async fn main() -> anyhow::Result<()> {
         .at("/api/statistics", get_statistics)
         .at("/api/mistake-collection", get_mistake_collection)
         .at("/api/today", today_statistics)
+        .at("/api/last7", last7_statistics)
+        .at("/api/last30", last30_statistics)
         .at("/api/daily/:date", get_daily_statistics)
-        .at("/", EmbeddedFileEndpoint::<Files>::new("index.html"))
-        .nest("/", EmbeddedFilesEndpoint::<Files>::new())
+        .nest("/", EmbeddedSPAEndpoint::<Files>::new())
         .with(Cors::new().allow_methods(vec!["GET", "POST"]))
         .with(AddData::new(state));
 

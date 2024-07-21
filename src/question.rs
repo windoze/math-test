@@ -50,6 +50,10 @@ impl Question {
         self.expected_answer
     }
 
+    pub fn get_answer(&self) -> Option<i64> {
+        self.user_answer
+    }
+
     fn get_input(&self) -> String {
         self.user_answer.map(|x| x.to_string()).unwrap_or_default()
     }
