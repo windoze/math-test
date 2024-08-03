@@ -109,9 +109,7 @@ impl ConsoleHolder {
 fn main() -> anyhow::Result<()> {
     let c = ConsoleHolder::new();
 
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
-        .init();
+    env_logger::builder().init();
     let rt = tokio::runtime::Runtime::new()?;
     let handle = rt.handle().clone();
 
