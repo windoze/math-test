@@ -1,5 +1,9 @@
 #![windows_subsystem = "windows"]
 
+use std::path::PathBuf;
+
+use clap::Parser;
+use clap_verbosity::Verbosity;
 use log::info;
 use once_cell::sync::OnceCell;
 use slint::Weak;
@@ -83,14 +87,34 @@ impl ConsoleHolder {
     }
 }
 
+#[derive(Parser, Debug)]
+struct Args {
+    /// Database file name.
+    #[arg(short, long)]
+    db_file: Option<PathBuf>,
+
+    /// Verbosity level.
+    #[command(flatten)]
+    verbose: Verbosity,
+}
+
 fn main() -> anyhow::Result<()> {
     let c = ConsoleHolder::new();
-    env_logger::builder().init();
+
+    let args = Args::parse();
+
+    env_logger::builder()
+        .filter_level(args.verbose.log_level_filter())
+        .init();
 
     let rt = tokio::runtime::Runtime::new()?;
     let handle = rt.handle().clone();
 
-    let instance = handle.block_on(quiz_repo::QuizRepo::new("questions.db"))?;
+    let db_path = args
+        .db_file
+        .or_else(|| dirs::config_dir().map(|d| d.join("math-quiz.db")));
+
+    let instance = handle.block_on(quiz_repo::QuizRepo::new(db_path))?;
 
     INSTANCE.set(instance).ok();
 

@@ -348,7 +348,7 @@ async fn main() -> anyhow::Result<()> {
     });
     let state = AppState {
         timezone: args.timezone.clone(),
-        repo: quiz_repo::QuizRepo::new(&db_path).await?,
+        repo: quiz_repo::QuizRepo::new(Some(&db_path)).await?,
     };
 
     let app = Route::new()
