@@ -19,8 +19,6 @@ use poem::{
 use rust_embed::RustEmbed;
 
 mod embed_spa;
-mod question;
-mod test_repo;
 
 #[derive(RustEmbed)]
 #[folder = "frontend/dist"]
@@ -29,7 +27,7 @@ pub struct Files;
 #[derive(Clone)]
 struct AppState {
     timezone: String,
-    repo: test_repo::TestRepo,
+    repo: quiz_repo::QuizRepo,
 }
 
 #[derive(serde::Serialize)]
@@ -228,7 +226,11 @@ async fn last_n_days(
                 anyhow::Error::msg("Failed to get daily statistics")
             })?;
         debug!("{}: correct: {}, total: {}", date, correct, total);
-        result.push(StatisticsResponseWithDate { date: date.to_rfc3339(), correct, total });
+        result.push(StatisticsResponseWithDate {
+            date: date.to_rfc3339(),
+            correct,
+            total,
+        });
     }
     let (correct, total) = result
         .iter()
@@ -274,10 +276,7 @@ async fn get_daily_statistics(
             log::error!("Error: {:?}", e);
             anyhow::Error::msg("Failed to get daily statistics")
         })
-        .map(|(correct, total)| Json(StatisticsResponse {
-            correct,
-            total,
-        }))?)
+        .map(|(correct, total)| Json(StatisticsResponse { correct, total }))?)
 }
 
 #[handler]
@@ -349,7 +348,7 @@ async fn main() -> anyhow::Result<()> {
     });
     let state = AppState {
         timezone: args.timezone.clone(),
-        repo: test_repo::TestRepo::new(&db_path).await?,
+        repo: quiz_repo::QuizRepo::new(&db_path).await?,
     };
 
     let app = Route::new()

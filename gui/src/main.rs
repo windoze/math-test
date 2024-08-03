@@ -1,18 +1,12 @@
 #![windows_subsystem = "windows"]
 
 use log::info;
+use once_cell::sync::OnceCell;
 use slint::Weak;
 
 slint::include_modules!();
 
-const API_URL: &str = "http://m1u.0d0a.com:3001/api";
-
-#[derive(Default, serde::Deserialize)]
-struct QuestionResponse {
-    id: i64,
-    question: String,
-    answer: Option<i64>,
-}
+static INSTANCE: OnceCell<quiz_repo::QuizRepo> = OnceCell::new();
 
 async fn get_new_question(ui: Weak<AppWindow>) -> anyhow::Result<()> {
     let ui_clone = ui.clone();
@@ -21,23 +15,23 @@ async fn get_new_question(ui: Weak<AppWindow>) -> anyhow::Result<()> {
         ui.set_question("".into());
         ui.set_answer("".into());
     })?;
-    let client = reqwest::Client::new();
-    let question: QuestionResponse = client
-        .post(format!("{API_URL}/new-question"))
-        .send()
-        .await?
-        .json()
+    let question = INSTANCE
+        .get()
+        .ok_or(anyhow::anyhow!("Failed to get instance"))?
+        .new_question()
         .await?;
     ui.upgrade_in_event_loop(move |ui| {
         info!(
             "Got new question, id: {}, question: {}, answer: {:?}",
-            question.id, question.question, question.answer
+            question.get_id(),
+            question.get_question(),
+            question.get_answer(),
         );
-        ui.set_id(question.id.to_string().into());
-        ui.set_question(format!("{} =", question.question).into());
+        ui.set_id(question.get_id().to_string().into());
+        ui.set_question(format!("{} =", question.get_question()).into());
         ui.set_answer(
             question
-                .answer
+                .get_answer()
                 .map(|n| n.to_string())
                 .unwrap_or_default()
                 .into(),
@@ -49,32 +43,15 @@ async fn get_new_question(ui: Weak<AppWindow>) -> anyhow::Result<()> {
 }
 
 async fn submit_answer(ui: Weak<AppWindow>, id: i64, answer: i64) -> anyhow::Result<()> {
-    #[derive(serde::Serialize)]
-    struct SubmitAnswerRequest {
-        id: i64,
-        answer: i64,
-    }
-
-    #[derive(serde::Deserialize)]
-    struct SubmitAnswerResponse {
-        id: i64,
-        correct: bool,
-    }
-
-    let request = SubmitAnswerRequest { id, answer };
-
-    let client = reqwest::Client::new();
-    let response: SubmitAnswerResponse = client
-        .post(format!("{API_URL}/submit-answer"))
-        .json(&request)
-        .send()
-        .await?
-        .json()
+    let correct = INSTANCE
+        .get()
+        .ok_or(anyhow::anyhow!("Failed to get instance"))?
+        .answer_question(id, answer)
         .await?;
-    info!("Id: {}, correct: {}", response.id, response.correct);
+    info!("Id: {}, correct: {}", id, correct);
     let ui_clone = ui.clone();
     ui_clone.upgrade_in_event_loop(move |ui| {
-        if response.correct {
+        if correct {
             ui.set_correct_overlay_visible(true);
         } else {
             ui.set_incorrect_overlay_visible(true);
@@ -108,10 +85,14 @@ impl ConsoleHolder {
 
 fn main() -> anyhow::Result<()> {
     let c = ConsoleHolder::new();
-
     env_logger::builder().init();
+
     let rt = tokio::runtime::Runtime::new()?;
     let handle = rt.handle().clone();
+
+    let instance = handle.block_on(quiz_repo::QuizRepo::new("questions.db"))?;
+
+    INSTANCE.set(instance).ok();
 
     let ui = AppWindow::new()?;
     handle.spawn(get_new_question(ui.as_weak()));
@@ -147,6 +128,5 @@ fn main() -> anyhow::Result<()> {
 
     ui.run()?;
 
-    c.wrap(());
-    Ok(())
+    c.wrap(Ok(()))
 }

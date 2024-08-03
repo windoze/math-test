@@ -59,6 +59,12 @@ impl Question {
     }
 }
 
+impl Default for Question {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Display for Question {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} = {}", self.question, self.get_input())

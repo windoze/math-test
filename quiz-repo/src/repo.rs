@@ -9,11 +9,11 @@ use tokio_rusqlite::Connection;
 use crate::question::Question;
 
 #[derive(Clone)]
-pub struct TestRepo {
+pub struct QuizRepo {
     connection: Connection,
 }
 
-impl TestRepo {
+impl QuizRepo {
     pub async fn new<P>(path: P) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,

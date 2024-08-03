@@ -1,8 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-    "gui",
-]
+members = ["gui", "quiz-repo"]
 
 [package]
 name = "server"
@@ -15,8 +13,6 @@ rust-version = "1.80.0"
 [dependencies]
 anyhow = "1.0"
 log = "0.4"
-rusqlite = { version = "0.31", features = ["bundled-full"] }
-tokio-rusqlite = "0.5"
 async-stream = "0.3"
 poem = { version = "3", features = [
     "anyhow",
@@ -27,7 +23,6 @@ poem = { version = "3", features = [
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-rand = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.9"
 now = "0.1"
@@ -36,3 +31,5 @@ env_logger = "0.11"
 clap = { version = "4", features = ["derive"] }
 hex = { version = "0.4" }
 mime_guess = { version = "2.0.3" }
+
+quiz-repo = { path = "quiz-repo" }

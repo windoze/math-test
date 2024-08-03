@@ -1,0 +1,15 @@
+[package]
+name = "quiz-repo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.9"
+log = "0.4"
+now = "0.1"
+rand = "0.8"
+rusqlite = { version = "0.31", features = ["bundled-full"] }
+tokio-rusqlite = "0.5"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
