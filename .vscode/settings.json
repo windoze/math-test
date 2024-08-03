@@ -4,5 +4,12 @@
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.formatOnSave": true
   },
-  "cSpell.words": ["rusqlite", "Rustls"]
+  "cSpell.words": [
+    "appkit",
+    "Autorelease",
+    "rusqlite",
+    "Rustls",
+    "winapi",
+    "wincon"
+  ]
 }

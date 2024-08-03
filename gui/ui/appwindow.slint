@@ -70,7 +70,7 @@ export component AppWindow inherits Window {
     correct-overlay := Image {
         height: self.width;
         width: 100%;
-        source: @image-url("check-mark.svg");
+        source: @image-url("../../frontend/public/check-mark.svg");
         visible: false;
         z: 10;
     }
@@ -78,7 +78,7 @@ export component AppWindow inherits Window {
     incorrect-overlay := Image {
         height: self.width;
         width: 100%;
-        source: @image-url("wrong-mark.svg");
+        source: @image-url("../../frontend/public/wrong-mark.svg");
         visible: false;
         z: 10;
     }
@@ -202,7 +202,7 @@ export component AppWindow inherits Window {
             }
 
             ImageButton {
-                source: @image-url("check-mark.svg");
+                source: @image-url("../../frontend/public/check-mark.svg");
                 background: #0e620e;
                 enabled: answer-box.text != "";
                 height: 80px;
