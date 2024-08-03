@@ -9,3 +9,7 @@
 **/*.rs.bk
 *.db
 *.db-journal
+
+# Mac garbage
+**/._*
+**/.DS_Store

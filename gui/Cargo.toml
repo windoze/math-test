@@ -1,0 +1,25 @@
+[package]
+name = "math-quiz"
+version = "0.1.0"
+authors = ["Chen Xu <windoze@0d0a.com>"]
+edition = "2021"
+build = "build.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+log = "0.4"
+env_logger = "0.11"
+slint = "1.7.1"
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3"
+
+[build-dependencies]
+slint-build = "1.7.1"
+embed-resource = "2.4"

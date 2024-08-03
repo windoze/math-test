@@ -1,7 +1,16 @@
+[workspace]
+resolver = "2"
+members = [
+    "gui",
+]
+
 [package]
 name = "server"
+authors = ["Chen Xu <windoze@0d0a.com>"]
 version = "0.1.0"
 edition = "2021"
+description = "Math quiz for kids"
+rust-version = "1.80.0"
 
 [dependencies]
 anyhow = "1.0"
