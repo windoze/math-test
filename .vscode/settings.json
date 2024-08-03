@@ -8,6 +8,7 @@
     "appkit",
     "Autorelease",
     "Datelike",
+    "localtime",
     "rusqlite",
     "Rustls",
     "winapi",
