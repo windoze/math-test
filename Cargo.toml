@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["gui", "quiz-repo"]
+members = [ "android","gui", "gui-lib", "quiz-repo"]
 
 [package]
 name = "server"

@@ -14,11 +14,14 @@ pub struct QuizRepo {
 }
 
 impl QuizRepo {
-    pub async fn new<P>(path: P) -> anyhow::Result<Self>
+    pub async fn new<P>(path: Option<P>) -> anyhow::Result<Self>
     where
         P: AsRef<Path>,
     {
-        let connection = Connection::open(path).await?;
+        let connection = match path {
+            Some(path) => Connection::open(path).await?,
+            None => Connection::open_in_memory().await?,
+        };
         connection
             .call(|conn| {
                 conn.execute_batch(

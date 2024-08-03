@@ -1,0 +1,25 @@
+[package]
+name = "android"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+slint = { version = "1.7.1", features = ["backend-android-activity-06"] }
+
+gui-lib = { path = "../gui-lib" }
+
+[package.metadata.android]
+# Specifies the package property of the manifest.
+package = "com.example.mathquiz"
+
+# Specifies the array of targets to build for.
+build_targets = ["aarch64-linux-android"]
+
+apk_name = "mathquiz"
+
+[package.metadata.android.sdk]
+min_sdk_version = 16
+target_sdk_version = 29
