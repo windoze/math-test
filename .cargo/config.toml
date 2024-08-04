@@ -1,0 +1,3 @@
+[env]
+# Enable experimental features in slint
+# SLINT_ENABLE_EXPERIMENTAL_FEATURES = "1"

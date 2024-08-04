@@ -1,0 +1,229 @@
+
+import { HorizontalBox, VerticalBox, Spinner, GridBox } from "std-widgets.slint";
+component TextButton inherits Rectangle {
+    in-out property text <=> txt.text;
+    in-out property font-size <=> txt.font-size;
+    in-out property enabled <=> touch.enabled;
+    callback clicked <=> touch.clicked;
+    border-radius: root.height / 4;
+    border-width: 1px;
+    border-color: root.background.darker(25%);
+    background: touch.pressed ? #6b8282 : touch.has-hover ? #6c616c : #456;
+    min-height: txt.preferred-height * 2;
+    min-width: txt.preferred-width * 2;
+    txt := Text {
+        x: (parent.width - self.width) / 2 + (touch.pressed ? 2px : 0);
+        y: (parent.height - self.height) / 2 + (touch.pressed ? 1px : 0) + 2px;
+        color: touch.pressed ? #fff : #eee;
+        font-size: 32px;
+    }
+
+    touch := TouchArea { }
+}
+
+component ImageButton inherits Rectangle {
+    in-out property source <=> img.source;
+    in-out property enabled <=> touch.enabled;
+    in-out property <color> background-color;
+    callback clicked <=> touch.clicked;
+    border-radius: root.height / 4;
+    border-width: 1px;
+    border-color: root.background.darker(25%);
+    background: enabled ? (touch.pressed ? background-color.darker(25%) : touch.has-hover ? background-color.brighter(25%) : background-color) : darkgrey;
+    min-height: img.preferred-height + 40px;
+    min-width: img.preferred-width + 20px;
+    img := Image {
+        x: (parent.width - self.width) / 2 + (touch.pressed ? 2px : 0);
+        y: (parent.height - self.height) / 2 + (touch.pressed ? 1px : 0) + 2px;
+        height: parent.height - 20px;
+    }
+
+    touch := TouchArea { }
+}
+
+export component Quiz {
+    min-width: 500px;
+    min-height: 500px;
+    in-out property <string> id;
+    in-out property <string> question;
+    in-out property <string> answer;
+    in-out property correct-overlay-visible <=> correct-overlay.visible;
+    in-out property incorrect-overlay-visible <=> incorrect-overlay.visible;
+    callback submit-clicked();
+
+    // private
+    property <int> answer-num;
+
+    function num-clicked(n: int) {
+        answer-num = answer-num * 10 + n;
+        answer = answer-num;
+    }
+
+    function backspace-clicked() {
+        if (answer-num <= 9) {
+            answer-num = 0;
+            answer = "";
+        } else {
+            answer-num = answer-num / 10;
+            answer = answer-num;
+        }
+    }
+
+    correct-overlay := Image {
+        height: self.width;
+        width: 100%;
+        source: @image-url("../assets/check-mark.svg");
+        visible: false;
+        vertical-alignment: center;
+        z: 10;
+    }
+
+    incorrect-overlay := Image {
+        height: self.width;
+        width: 100%;
+        source: @image-url("../assets/wrong-mark.svg");
+        visible: false;
+        vertical-alignment: center;
+        z: 10;
+    }
+
+    VerticalBox {
+        z: 0;
+        question-box := Text {
+            text <=> root.question;
+            font-size: 64px;
+            font-family: "Monospace";
+            height: 80px;
+            vertical-stretch: 0;
+        }
+
+        answer-box := Text {
+            text <=> root.answer;
+            font-size: 64px;
+            font-family: "Monospace";
+            height: 80px;
+            vertical-stretch: 0;
+        }
+
+        Rectangle {
+            min-height: 10px;
+            vertical-stretch: 1;
+        }
+
+        GridBox {
+            spacing: 5px;
+            vertical-stretch: 0;
+            Row {
+                TextButton {
+                    text: "1";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "2";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "3";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "4";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "5";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+            }
+
+            Row {
+                TextButton {
+                    text: "6";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "7";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "8";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "9";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+
+                TextButton {
+                    text: "0";
+                    enabled: answer-num < 100000000;
+                    clicked => {
+                        root.num-clicked(self.text.to-float());
+                    }
+                }
+            }
+        }
+
+        GridBox {
+            spacing: 10px;
+            vertical-stretch: 0;
+            Row {
+                ImageButton {
+                    source: @image-url("../assets/backspace.svg");
+                    background-color: #950000;
+                    enabled: answer-box.text != "";
+                    height: 80px;
+                    clicked => {
+                        root.backspace-clicked();
+                    }
+                }
+
+                ImageButton {
+                    source: @image-url("../assets/check-mark.svg");
+                    background-color: #0e620e;
+                    enabled: answer-box.text != "";
+                    height: 80px;
+                    clicked => {
+                        root.submit-clicked();
+                        root.answer-num = 0;
+                        root.answer = "";
+                    }
+                }
+            }
+        }
+    }
+}

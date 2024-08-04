@@ -173,4 +173,35 @@ impl QuizRepo {
 
         self.get_statistics(Some(day_start), Some(day_end)).await
     }
+
+    pub async fn get_all_localtime_daily_statistics(
+        &self,
+    ) -> anyhow::Result<Vec<(String, i64, i64, f64)>> {
+        const SQL: &str = "
+        SELECT 
+            DATE(DATETIME(answered_at, 'localtime')) AS local_date,
+            COUNT(*) AS total_count,
+            SUM(CASE WHEN expected_answer = answer THEN 1 ELSE 0 END) AS correct_count,
+            ROUND(CAST(SUM(CASE WHEN expected_answer = answer THEN 1 ELSE 0 END) AS FLOAT) / COUNT(*) * 100, 2) AS correct_rate
+        FROM 
+            questions
+        WHERE
+            answered_at IS NOT NULL AND answer IS NOT NULL
+        GROUP BY 
+            local_date
+        ORDER BY 
+            local_date;";
+        Ok(self
+            .connection
+            .call(|conn| {
+                let mut stmt = conn.prepare(SQL)?;
+                let mut rows = stmt.query([])?;
+                let mut result = Vec::new();
+                while let Some(row) = rows.next()? {
+                    result.push((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?));
+                }
+                Ok(result)
+            })
+            .await?)
+    }
 }
