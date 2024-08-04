@@ -1,0 +1,97 @@
+import { Button, VerticalBox, HorizontalBox, Spinner, TabWidget, StandardTableView } from "std-widgets.slint";
+import {Quiz} from "views/quiz.slint";
+import { SMenu,SCard,SHeader,SIcon,SButton  } from "surrealism-ui/index.slint";
+import {UseIcons } from "surrealism-ui/use/index.slint";
+
+
+export component AppWindow inherits Window {
+    title: "计算练习";
+    icon: @image-url("assets/math-quiz.png");
+    in-out property loading-overlay-visible <=> loading-overlay.visible;
+    in-out property id <=> quiz.id;
+    in-out property question <=> quiz.question;
+    in-out property answer <=> quiz.answer;
+    in-out property correct-overlay-visible <=> quiz.correct-overlay-visible;
+    in-out property incorrect-overlay-visible <=> quiz.incorrect-overlay-visible;
+    in property <[[StandardListViewItem]]> scores;
+    in property <[[StandardListViewItem]]> mistakes;
+    callback submit-clicked <=> quiz.submit-clicked;
+    callback tab-changed(int);
+
+    private property <int> router-index: 0;
+
+    min-height: quiz.min-height;
+    min-width: quiz.min-width + menu.width;
+
+    // Global overlay for loading spinner
+    loading-overlay := Spinner {
+        height: self.width;
+        width: 100px;
+        visible: false;
+        indeterminate: true;
+        z: 5;
+    }
+
+    HorizontalLayout {
+        x: 0;
+        y: 0;
+        height: parent.height;
+        menu := SMenu {
+            z: 100;
+            height: parent.height;
+            menu-data: [
+                { id:"0", icon:UseIcons.icons.FileCode, name:"练习" },
+                { id:"1", icon:UseIcons.icons.Success, name:"成绩单" },
+                { id:"2", icon:UseIcons.icons.Close-one, name:"错题本" },
+            ];
+            sub-menu-data: [];
+            change(index, data) => {
+                tab-changed(index);
+                router-index = index;
+            }
+        }
+
+        Rectangle {
+            height: parent.height;
+            width: parent.width - menu.width;
+            Rectangle {
+                visible: router-index == 0;
+                z: 50;
+                quiz := Quiz {
+                    width: parent.width;
+                    height: parent.height;
+                }
+            }
+
+            Rectangle {
+                visible: router-index == 1;
+                z: 60;
+                StandardTableView {
+                    width: parent.width;
+                    height: parent.height;
+                    columns: [
+                        { title: "日期" },
+                        { title: "总数" },
+                        { title: "正确" },
+                        { title: "得分" },
+                    ];
+                    rows: scores;
+                }
+            }
+
+            Rectangle {
+                visible: router-index == 2;
+                z: 70;
+                StandardTableView {
+                    width: parent.width;
+                    height: parent.height;
+                    columns: [
+                        { title: "题目" },
+                        { title: "错误答案" },
+                    ];
+                    rows: mistakes;
+                }
+            }
+        }
+    }
+}

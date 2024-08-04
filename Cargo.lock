@@ -277,6 +277,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3d1d046238990b9cf5bcde22a3fb3584ee5cf65fb2765f454ed428c7a0063da"
 
 [[package]]
+name = "app_dirs2"
+version = "2.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7e7b35733e3a8c1ccb90385088dd5b6eaa61325cb4d1ad56e683b5224ff352e"
+dependencies = [
+ "jni",
+ "ndk-context",
+ "winapi",
+ "xdg",
+]
+
+[[package]]
 name = "arrayref"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2045,7 +2057,7 @@ name = "gui-lib"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "embed-resource",
+ "app_dirs2",
  "env_logger",
  "log",
  "once_cell",
@@ -2053,7 +2065,6 @@ dependencies = [
  "slint",
  "slint-build",
  "tokio",
- "winapi",
 ]
 
 [[package]]
@@ -2990,11 +3001,13 @@ name = "math-quiz"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "app_dirs2",
  "clap",
  "clap-verbosity",
  "embed-resource",
  "env_logger",
  "gui-lib",
+ "log",
  "winapi",
 ]
 
@@ -6316,6 +6329,12 @@ name = "xcursor"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d491ee231a51ae64a5b762114c3ac2104b967aadba1de45c86ca42cf051513b7"
+
+[[package]]
+name = "xdg"
+version = "2.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "213b7324336b53d2414b2db8537e56544d981803139155afa84f76eeebb7a546"
 
 [[package]]
 name = "xdg-home"

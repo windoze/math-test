@@ -1,6 +1,8 @@
-use log::info;
+use std::{path::PathBuf, rc::Rc};
+
+use log::{debug, info};
 use once_cell::sync::OnceCell;
-use slint::Weak;
+use slint::{SharedString, StandardListViewItem, VecModel, Weak};
 
 slint::include_modules!();
 
@@ -118,35 +120,12 @@ async fn overlay_wrapper<T: Send + Sized + 'static>(
     Ok(())
 }
 
-struct ConsoleHolder;
-
-impl ConsoleHolder {
-    /// Attach console from parent process.
-    pub fn new() -> Self {
-        #[cfg(windows)]
-        unsafe {
-            winapi::um::wincon::AttachConsole(0xFFFFFFFF);
-        }
-        Self
-    }
-
-    pub fn wrap<T>(self, t: T) -> T {
-        t
-    }
-}
-
-pub fn ui_main<P>(p: Option<P>) -> anyhow::Result<()>
-where
-    P: AsRef<std::path::Path>,
-{
-    let c = ConsoleHolder::new();
-
+pub fn ui_main(p: Option<PathBuf>) -> anyhow::Result<()> {
+    info!("Starting UI");
     let rt = tokio::runtime::Runtime::new()?;
     let handle = rt.handle().clone();
 
-    let db_path = p.or_else(|| dirs::config_dir().map(|d| d.join("math-quiz.db")));
-
-    let instance = handle.block_on(quiz_repo::QuizRepo::new(db_path))?;
+    let instance = handle.block_on(quiz_repo::QuizRepo::new(p))?;
 
     INSTANCE.set(instance).ok();
 
@@ -186,6 +165,5 @@ where
     });
 
     ui.run()?;
-
-    c.wrap(Ok(()))
+    Ok(())
 }

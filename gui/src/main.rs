@@ -1,15 +1,18 @@
 #![windows_subsystem = "windows"]
 
-use std::{path::PathBuf, rc::Rc};
+use std::path::PathBuf;
 
+use app_dirs::{get_app_root, AppDataType, AppInfo};
 use clap::Parser;
 use clap_verbosity::Verbosity;
 use gui_lib::ui_main;
-use log::{debug, info};
-use once_cell::sync::OnceCell;
-use slint::{SharedString, StandardListViewItem, VecModel, Weak};
+use log::error;
 
-slint::include_modules!();
+const APP_INFO: AppInfo = AppInfo {
+    name: "MathQuiz",
+    author: "ChenXu",
+};
+
 struct ConsoleHolder;
 
 impl ConsoleHolder {
@@ -47,7 +50,18 @@ fn main() -> anyhow::Result<()> {
         .filter_level(args.verbose.log_level_filter())
         .init();
 
-    ui_main(p(args.db_file))?;
+    let db_path = match args.db_file {
+        Some(p) => Some(p),
+        None => match get_app_root(AppDataType::UserData, &APP_INFO) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                error!("Failed to get app data directory: {}", e);
+                None
+            }
+        },
+    };
+
+    ui_main(db_path)?;
 
     c.wrap(Ok(()))
 }
