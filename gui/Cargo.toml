@@ -32,6 +32,7 @@ embed-resource = "2.4"
 name = "Math Quiz"
 identifier = "com.0d0a.math-quiz"
 icon = ["ui/assets/math-quiz.ico"]
+resources = ["README.md", "LICENSE"]
 copyright = "Copyright (c) Chen Xu 2024. All rights reserved."
 category = "Education"
 
