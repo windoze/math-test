@@ -8,6 +8,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 slint = { version = "1.7.1", features = ["backend-android-activity-06"] }
+app_dirs = { package = "app_dirs2", version = "2.5" }
+log = "0.4"
 
 gui-lib = { path = "../gui-lib" }
 
