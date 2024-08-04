@@ -50,18 +50,9 @@ export component Quiz {
     in-out property <bool> number-enabled;
     in-out property correct-overlay-visible <=> correct-overlay.visible;
     in-out property incorrect-overlay-visible <=> incorrect-overlay.visible;
-    in-out property loading-overlay-visible <=> loading-overlay.visible;
     callback submit-clicked();
     callback num-clicked(int);
     callback backspace-clicked();
-    loading-overlay := Spinner {
-        height: self.width;
-        width: 100px;
-        visible: false;
-        indeterminate: true;
-        z: 20;
-    }
-
     correct-overlay := Image {
         height: self.width;
         width: 100%;

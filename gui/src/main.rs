@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use clap_verbosity::Verbosity;
-use log::info;
+use log::{debug, info};
 use once_cell::sync::OnceCell;
 use slint::Weak;
 
@@ -67,6 +67,51 @@ async fn submit_answer(ui: Weak<AppWindow>, id: i64, answer: i64) -> anyhow::Res
         ui.set_correct_overlay_visible(false);
         ui.set_incorrect_overlay_visible(false);
     })?;
+    Ok(())
+}
+
+async fn update_score(ui: Weak<AppWindow>) -> anyhow::Result<()> {
+    debug!("Updating score");
+    let score = INSTANCE
+        .get()
+        .ok_or(anyhow::anyhow!("Failed to get instance"))?
+        .get_all_localtime_daily_statistics()
+        .await?
+        .into_iter()
+        .map(|row| {
+            (
+                row.0,
+                row.1.to_string(),
+                row.2.to_string(),
+                row.3.to_string(),
+            )
+        })
+        .collect::<Vec<_>>();
+    ui.upgrade_in_event_loop(move |ui| {
+        // todo: update score-sheet
+    });
+    Ok(())
+}
+
+async fn update_mistake_collection(ui: Weak<AppWindow>) -> anyhow::Result<()> {
+    debug!("Updating mistake collection");
+    let mistake_collection = INSTANCE
+        .get()
+        .ok_or(anyhow::anyhow!("Failed to get instance"))?
+        .mistake_collection()
+        .await?
+        .into_iter()
+        .map(|row| {
+            (
+                row.0.to_string(),
+                row.1,
+                row.2.map(|v| v.to_string()).unwrap_or_default(),
+            )
+        })
+        .collect::<Vec<_>>();
+    ui.upgrade_in_event_loop(move |ui| {
+        // todo: update mistake-collection
+    });
     Ok(())
 }
 
@@ -144,10 +189,21 @@ fn main() -> anyhow::Result<()> {
     });
 
     let weak_ui = ui.as_weak();
+    let handle_clone = handle.clone();
     ui.on_submit_clicked(move || {
         let id = weak_ui.unwrap().get_id().parse::<i64>().unwrap_or(0);
         let answer = weak_ui.unwrap().get_answer().parse::<i64>().unwrap_or(0);
-        handle.spawn(submit_answer(weak_ui.clone(), id, answer));
+        handle_clone.spawn(submit_answer(weak_ui.clone(), id, answer));
+    });
+
+    let weak_ui = ui.as_weak();
+    ui.on_tab_changed(move |n| {
+        debug!("Tab changed: {}", n);
+        if n == 1 {
+            handle.spawn(update_score(weak_ui.clone()));
+        } else if n == 2 {
+            handle.spawn(update_mistake_collection(weak_ui.clone()));
+        }
     });
 
     ui.run()?;
