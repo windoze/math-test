@@ -4,6 +4,9 @@
     "editor.defaultFormatter": "rust-lang.rust-analyzer",
     "editor.formatOnSave": true
   },
+  "rust-analyzer.cargo.extraEnv": {
+    "SLINT_ENABLE_EXPERIMENTAL_FEATURES": "1"
+  },
   "cSpell.words": [
     "appkit",
     "Autorelease",

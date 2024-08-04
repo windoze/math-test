@@ -8,13 +8,11 @@ export component AppWindow inherits Window {
     in-out property id <=> quiz.id;
     in-out property question <=> quiz.question;
     in-out property answer <=> quiz.answer;
-    in-out property number-enabled <=> quiz.number-enabled;
     in-out property correct-overlay-visible <=> quiz.correct-overlay-visible;
     in-out property incorrect-overlay-visible <=> quiz.incorrect-overlay-visible;
-    in property <[{date: string, total: string, correct: string, score: string}]> scores;
+    in property <[[StandardListViewItem]]> scores;
+    in property <[[StandardListViewItem]]> mistakes;
     callback submit-clicked <=> quiz.submit-clicked;
-    callback num-clicked <=> quiz.num-clicked;
-    callback backspace-clicked <=> quiz.backspace-clicked;
     callback tab-changed(int);
     // Global overlay for loading spinner
     loading-overlay := Spinner {
@@ -22,7 +20,7 @@ export component AppWindow inherits Window {
         width: 100px;
         visible: false;
         indeterminate: true;
-        z: 20;
+        z: 5;
     }
 
     TabWidget {
@@ -42,7 +40,7 @@ export component AppWindow inherits Window {
 
         Tab {
             title: "成绩单";
-            score-sheet := StandardTableView {
+            StandardTableView {
                 width: 100%;
                 height: 100%;
                 columns: [
@@ -51,37 +49,20 @@ export component AppWindow inherits Window {
                     { title: "正确" },
                     { title: "得分" },
                 ];
-                rows: [];
+                rows: scores;
             }
         }
 
         Tab {
             title: "错题本";
-            mistake-collection := StandardTableView {
+            StandardTableView {
                 width: 100%;
                 height: 100%;
                 columns: [
-                    { title: "日期" },
                     { title: "题目" },
                     { title: "错误答案" },
                 ];
-                rows: [
-                    [
-                        { text: "Item 1" },
-                        { text: "Item 2" },
-                        { text: "Item 3" },
-                    ],
-                    [
-                        { text: "Item 1" },
-                        { text: "Item 2" },
-                        { text: "Item 3" },
-                    ],
-                    [
-                        { text: "Item 1" },
-                        { text: "Item 2" },
-                        { text: "Item 3" },
-                    ]
-                ];
+                rows: mistakes;
             }
         }
     }

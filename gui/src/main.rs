@@ -1,12 +1,12 @@
 #![windows_subsystem = "windows"]
 
-use std::path::PathBuf;
+use std::{path::PathBuf, rc::Rc};
 
 use clap::Parser;
 use clap_verbosity::Verbosity;
 use log::{debug, info};
 use once_cell::sync::OnceCell;
-use slint::Weak;
+use slint::{SharedString, StandardListViewItem, VecModel, Weak};
 
 slint::include_modules!();
 
@@ -40,7 +40,6 @@ async fn get_new_question(ui: Weak<AppWindow>) -> anyhow::Result<()> {
                 .unwrap_or_default()
                 .into(),
         );
-        ui.set_number_enabled(ui.get_answer().len() <= 8);
         ui.set_loading_overlay_visible(false);
     })?;
     Ok(())
@@ -61,8 +60,11 @@ async fn submit_answer(ui: Weak<AppWindow>, id: i64, answer: i64) -> anyhow::Res
             ui.set_incorrect_overlay_visible(true);
         }
     })?;
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    get_new_question(ui).await?;
+    tokio::join!(
+        tokio::time::sleep(std::time::Duration::from_secs(1)),
+        get_new_question(ui)
+    )
+    .1?;
     ui_clone.upgrade_in_event_loop(move |ui| {
         ui.set_correct_overlay_visible(false);
         ui.set_incorrect_overlay_visible(false);
@@ -70,48 +72,55 @@ async fn submit_answer(ui: Weak<AppWindow>, id: i64, answer: i64) -> anyhow::Res
     Ok(())
 }
 
-async fn update_score(ui: Weak<AppWindow>) -> anyhow::Result<()> {
-    debug!("Updating score");
-    let score = INSTANCE
-        .get()
-        .ok_or(anyhow::anyhow!("Failed to get instance"))?
-        .get_all_localtime_daily_statistics()
-        .await?
-        .into_iter()
-        .map(|row| {
-            (
-                row.0,
-                row.1.to_string(),
-                row.2.to_string(),
-                row.3.to_string(),
-            )
-        })
-        .collect::<Vec<_>>();
-    ui.upgrade_in_event_loop(move |ui| {
-        // todo: update score-sheet
-    });
-    Ok(())
+fn update_score(ui: AppWindow, score: Vec<(String, i64, i64, f64)>) {
+    let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
+    for s in score {
+        let items = Rc::new(VecModel::default());
+        items.push(StandardListViewItem::from(SharedString::from(s.0)));
+        items.push(StandardListViewItem::from(SharedString::from(
+            s.1.to_string(),
+        )));
+        items.push(StandardListViewItem::from(SharedString::from(
+            s.2.to_string(),
+        )));
+        items.push(StandardListViewItem::from(SharedString::from(
+            s.3.to_string(),
+        )));
+        row_data.push(items.into());
+    }
+    ui.set_scores(row_data.into());
 }
 
-async fn update_mistake_collection(ui: Weak<AppWindow>) -> anyhow::Result<()> {
-    debug!("Updating mistake collection");
-    let mistake_collection = INSTANCE
-        .get()
-        .ok_or(anyhow::anyhow!("Failed to get instance"))?
-        .mistake_collection()
-        .await?
-        .into_iter()
-        .map(|row| {
-            (
-                row.0.to_string(),
-                row.1,
-                row.2.map(|v| v.to_string()).unwrap_or_default(),
-            )
-        })
-        .collect::<Vec<_>>();
+fn update_mistake_collection(ui: AppWindow, mistake_collection: Vec<(i64, String, Option<i64>)>) {
+    let row_data: Rc<VecModel<slint::ModelRc<StandardListViewItem>>> = Rc::new(VecModel::default());
+    for s in mistake_collection {
+        let items = Rc::new(VecModel::default());
+        items.push(StandardListViewItem::from(SharedString::from(s.1)));
+        items.push(StandardListViewItem::from(SharedString::from(
+            s.2.map(|n| n.to_string()).unwrap_or_default(),
+        )));
+        row_data.push(items.into());
+    }
+    ui.set_mistakes(row_data.into());
+}
+
+async fn overlay_wrapper<T: Send + Sized + 'static>(
+    ui: Weak<AppWindow>,
+    fut: impl std::future::Future<Output = anyhow::Result<T>>,
+    updater: impl FnOnce(AppWindow, T) + Send + 'static,
+) -> anyhow::Result<()> {
+    // Show loading overlay
+    let ui_clone = ui.clone();
+    ui_clone.upgrade_in_event_loop(|ui| {
+        ui.set_loading_overlay_visible(true);
+    })?;
+    // Run the future
+    let result = fut.await?;
+    // Update UI and hide loading overlay
     ui.upgrade_in_event_loop(move |ui| {
-        // todo: update mistake-collection
-    });
+        updater(ui.clone_strong(), result);
+        ui.set_loading_overlay_visible(false);
+    })?;
     Ok(())
 }
 
@@ -167,28 +176,6 @@ fn main() -> anyhow::Result<()> {
     handle.spawn(get_new_question(ui.as_weak()));
 
     let weak_ui = ui.as_weak();
-    ui.on_num_clicked(move |num| {
-        let ui = weak_ui.unwrap();
-        let mut answer = ui.get_answer().parse::<i64>().unwrap_or(0);
-        answer = answer * 10 + (num as i64);
-        ui.set_answer(answer.to_string().into());
-        ui.set_number_enabled(ui.get_answer().len() <= 8);
-    });
-
-    let weak_ui = ui.as_weak();
-    ui.on_backspace_clicked(move || {
-        let ui = weak_ui.unwrap();
-        let mut answer = ui.get_answer().parse::<i64>().unwrap_or(0);
-        if answer < 10 {
-            ui.set_answer("".into());
-        } else {
-            answer /= 10;
-            ui.set_answer(answer.to_string().into());
-        }
-        ui.set_number_enabled(ui.get_answer().len() <= 8);
-    });
-
-    let weak_ui = ui.as_weak();
     let handle_clone = handle.clone();
     ui.on_submit_clicked(move || {
         let id = weak_ui.unwrap().get_id().parse::<i64>().unwrap_or(0);
@@ -200,9 +187,23 @@ fn main() -> anyhow::Result<()> {
     ui.on_tab_changed(move |n| {
         debug!("Tab changed: {}", n);
         if n == 1 {
-            handle.spawn(update_score(weak_ui.clone()));
+            handle.spawn(overlay_wrapper(
+                weak_ui.clone(),
+                INSTANCE
+                    .get()
+                    .expect("Failed to get instance")
+                    .get_all_localtime_daily_statistics(),
+                update_score,
+            ));
         } else if n == 2 {
-            handle.spawn(update_mistake_collection(weak_ui.clone()));
+            handle.spawn(overlay_wrapper(
+                weak_ui.clone(),
+                INSTANCE
+                    .get()
+                    .expect("Failed to get instance")
+                    .mistake_collection(),
+                update_mistake_collection,
+            ));
         }
     });
 
