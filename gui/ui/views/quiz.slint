@@ -24,11 +24,12 @@ component TextButton inherits Rectangle {
 component ImageButton inherits Rectangle {
     in-out property source <=> img.source;
     in-out property enabled <=> touch.enabled;
+    in-out property <color> background-color;
     callback clicked <=> touch.clicked;
     border-radius: root.height / 4;
     border-width: 1px;
     border-color: root.background.darker(25%);
-    background: touch.pressed ? #6b8282 : touch.has-hover ? #6c616c : #456;
+    background: enabled ? (touch.pressed ? background-color.darker(25%) : touch.has-hover ? background-color.brighter(25%) : background-color) : darkgrey;
     min-height: img.preferred-height + 40px;
     min-width: img.preferred-width + 20px;
     img := Image {
@@ -71,7 +72,7 @@ export component Quiz {
     correct-overlay := Image {
         height: self.width;
         width: 100%;
-        source: @image-url("../../frontend/public/check-mark.svg");
+        source: @image-url("../assets/check-mark.svg");
         visible: false;
         vertical-alignment: center;
         z: 10;
@@ -80,7 +81,7 @@ export component Quiz {
     incorrect-overlay := Image {
         height: self.width;
         width: 100%;
-        source: @image-url("../../frontend/public/wrong-mark.svg");
+        source: @image-url("../assets/wrong-mark.svg");
         visible: false;
         vertical-alignment: center;
         z: 10;
@@ -198,12 +199,12 @@ export component Quiz {
         }
 
         GridBox {
-            spacing: 5px;
+            spacing: 10px;
             vertical-stretch: 0;
             Row {
                 ImageButton {
-                    source: @image-url("backspace.svg");
-                    background: #950000;
+                    source: @image-url("../assets/backspace.svg");
+                    background-color: #950000;
                     enabled: answer-box.text != "";
                     height: 80px;
                     clicked => {
@@ -212,8 +213,8 @@ export component Quiz {
                 }
 
                 ImageButton {
-                    source: @image-url("../../frontend/public/check-mark.svg");
-                    background: #0e620e;
+                    source: @image-url("../assets/check-mark.svg");
+                    background-color: #0e620e;
                     enabled: answer-box.text != "";
                     height: 80px;
                     clicked => {

@@ -1,9 +1,12 @@
 import { Button, VerticalBox, HorizontalBox, Spinner, TabWidget, StandardTableView } from "std-widgets.slint";
-import {Quiz} from "quiz.slint";
+import {Quiz} from "views/quiz.slint";
+import { SMenu,SCard,SHeader,SIcon,SButton  } from "surrealism-ui/index.slint";
+import {UseIcons } from "surrealism-ui/use/index.slint";
+
 
 export component AppWindow inherits Window {
     title: "计算练习";
-    icon: @image-url("math-quiz.png");
+    icon: @image-url("assets/math-quiz.png");
     in-out property loading-overlay-visible <=> loading-overlay.visible;
     in-out property id <=> quiz.id;
     in-out property question <=> quiz.question;
@@ -14,6 +17,12 @@ export component AppWindow inherits Window {
     in property <[[StandardListViewItem]]> mistakes;
     callback submit-clicked <=> quiz.submit-clicked;
     callback tab-changed(int);
+
+    private property <int> router-index: 0;
+
+    min-height: quiz.min-height;
+    min-width: quiz.min-width + menu.width;
+
     // Global overlay for loading spinner
     loading-overlay := Spinner {
         height: self.width;
@@ -23,46 +32,65 @@ export component AppWindow inherits Window {
         z: 5;
     }
 
-    TabWidget {
-        z: 0;
-        // This is not yet officially supported.
-        // Needs `SLINT_ENABLE_EXPERIMENTAL_FEATURES` set to `1` in `.cargo/config.toml`
-        changed current-index => {
-            tab-changed(self.current-index);
-        }
-        Tab {
-            title: "练习";
-            quiz := Quiz {
-                width: 100%;
-                height: 100%;
+    HorizontalLayout {
+        x: 0;
+        y: 0;
+        height: parent.height;
+        menu := SMenu {
+            z: 100;
+            height: parent.height;
+            menu-data: [
+                { id:"0", icon:UseIcons.icons.FileCode, name:"练习" },
+                { id:"1", icon:UseIcons.icons.Success, name:"成绩单" },
+                { id:"2", icon:UseIcons.icons.Close-one, name:"错题本" },
+            ];
+            sub-menu-data: [];
+            change(index, data) => {
+                tab-changed(index);
+                router-index = index;
             }
         }
 
-        Tab {
-            title: "成绩单";
-            StandardTableView {
-                width: 100%;
-                height: 100%;
-                columns: [
-                    { title: "日期" },
-                    { title: "总数" },
-                    { title: "正确" },
-                    { title: "得分" },
-                ];
-                rows: scores;
+        Rectangle {
+            height: parent.height;
+            width: parent.width - menu.width;
+            Rectangle {
+                visible: router-index == 0;
+                z: 50;
+                quiz := Quiz {
+                    width: parent.width;
+                    height: parent.height;
+                }
             }
-        }
 
-        Tab {
-            title: "错题本";
-            StandardTableView {
-                width: 100%;
-                height: 100%;
-                columns: [
-                    { title: "题目" },
-                    { title: "错误答案" },
-                ];
-                rows: mistakes;
+            Rectangle {
+                visible: router-index == 1;
+                z: 60;
+                StandardTableView {
+                    width: parent.width;
+                    height: parent.height;
+                    columns: [
+                        { title: "日期" },
+                        { title: "总数" },
+                        { title: "正确" },
+                        { title: "得分" },
+                    ];
+                    rows: scores;
+                }
+            }
+
+            Rectangle {
+                visible: router-index == 2;
+                z: 70;
+                StandardTableView {
+                    width: parent.width;
+                    height: parent.height;
+                    columns: [
+                        { title: "题目" },
+                        { title: "错误答案" },
+                    ];
+                    rows: mistakes;
+                }
             }
         }
     }

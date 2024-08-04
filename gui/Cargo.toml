@@ -31,7 +31,7 @@ embed-resource = "2.4"
 [package.metadata.bundle]
 name = "Math Quiz"
 identifier = "com.0d0a.math-quiz"
-icon = ["ui/math-quiz.ico"]
+icon = ["ui/assets/math-quiz.ico"]
 copyright = "Copyright (c) Chen Xu 2024. All rights reserved."
 category = "Education"
 
