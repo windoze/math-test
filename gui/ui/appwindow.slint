@@ -40,9 +40,9 @@ export component AppWindow inherits Window {
             z: 100;
             height: parent.height;
             menu-data: [
-                { id:"0", icon:UseIcons.icons.FileCode, name:"练习" },
-                { id:"1", icon:UseIcons.icons.Success, name:"成绩单" },
-                { id:"2", icon:UseIcons.icons.Close-one, name:"错题本" },
+                { id:"0", icon:@image-url("assets/arithmetic-buttons.svg"), name:"练习" },
+                { id:"1", icon:@image-url("assets/checklist.svg"), name:"成绩单" },
+                { id:"2", icon:@image-url("assets/error.svg"), name:"错题本" },
             ];
             sub-menu-data: [];
             change(index, data) => {
